@@ -1,0 +1,243 @@
+#Paquetes a instalar
+{
+install.packages("readr")
+install.packages("lubridate")
+install.packages("dplyr")
+install.packages("tidyr")
+install.packages("ggplot2")
+
+}
+#Paquetes a usar
+{
+library(readr)
+library(lubridate)
+library(dplyr)
+library(tidyr)  
+library(ggplot2)  
+}
+
+#Setiar Directorio
+{
+setwd("C:/Users/Alfonso Orrego/OneDrive - Universidad Adolfo Ibanez/Simplex/UAI/Tesis/Tablas de vida/Longevidad y educacion/Datos/defun_1990_2019/Base de datos Muertes 1990-2017/Series CSV")
+#Revisar que este bien hecho el path
+getwd()
+}
+
+#Extraer uno a uno para comprobar formatos y tamaños:
+{
+# 1990´s  
+df_1990 <- read.csv("Defun_1990.csv", sep = ";")
+df_1991 <- read.csv("Defun_1991.csv", sep = ";")
+df_1992 <- read.csv("Defun_1992.csv", sep = ";")
+df_1993 <- read.csv("Defun_1993.csv", sep = ";")
+df_1994 <- read.csv("Defun_1994.csv", sep = ";")
+df_1995 <- read.csv("Defun_1995.csv", sep = ";")
+df_1996 <- read.csv("Defun_1996.csv", sep = ";")
+df_1997 <- read.csv("Defun_1997.csv", sep = ";")
+df_1998 <- read.csv("Defun_1998.csv", sep = ";")
+df_1999 <- read.csv("Defun_1999.csv", sep = ";")
+# 2000´s
+df_2000 <- read.csv("Defun_2000.csv", sep = ";")
+df_2001 <- read.csv("Defun_2001.csv", sep = ";")
+df_2002 <- read.csv("Defun_2002.csv", sep = ";")
+df_2003 <- read.csv("Defun_2003.csv", sep = ";")
+df_2004 <- read.csv("Defun_2004.csv", sep = ";")
+df_2005 <- read.csv("Defun_2005.csv", sep = ";")
+df_2006 <- read.csv("Defun_2006.csv", sep = ";")
+df_2007 <- read.csv("Defun_2007.csv", sep = ";")
+df_2008 <- read.csv("Defun_2008.csv", sep = ";")
+df_2009 <- read.csv("Defun_2009.csv", sep = ";")
+# 2010´s
+df_2010 <- read.csv("Defun_2010.csv", sep = ";")
+df_2011 <- read.csv("Defun_2011.csv", sep = ";")
+df_2012 <- read.csv("Defun_2012.csv", sep = ";")
+df_2013 <- read.csv("Defun_2013.csv", sep = ";")
+df_2014 <- read.csv("Defun_2014.csv", sep = ";")
+df_2015 <- read.csv("Defun_2015.csv", sep = ";")
+df_2016 <- read.csv("Defun_2016.csv", sep = ";")
+df_2017 <- read.csv("Defun_2017.csv", sep = ";")
+df_2018_2019 <- read.csv("Defun_2018_2019.csv", sep = ";")
+}
+
+#Corregir problemas/formatos
+{
+df_1990$DIA_DEF <- as.numeric(df_1990$DIA_DEF)
+df_1990$MES_DEF <- as.numeric(df_1990$MES_DEF)
+df_1990$ANO_DEF <- as.numeric(df_1990$ANO_DEF)
+
+#Eliminar Columna que sobra
+df_2018_2019 <- df_2018_2019 %>% select(-X)
+head(df_2018_2019)
+}
+
+#Combinar todos los data frames en uno: listar y combinar (S_def es la serie completa)
+{
+lista_df <- list(df_1990,df_1991,df_1992,df_1993,df_1994,df_1995,df_1996,df_1997,df_1998,df_1999,df_2000,df_2001,df_2002,df_2003,df_2004,df_2005,df_2006,df_2007,df_2008,df_2009,df_2010,df_2011,df_2012,df_2013,df_2014,df_2015,df_2016,df_2017,df_2018_2019)
+S_def <- bind_rows(lista_df)
+
+}
+
+# Dropear todos los df excepto S_def para ahorro de memoria.
+{
+ambiente <- ls()
+mantener <- "S_def"
+rm(list = setdiff(ambiente, mantener))
+ls()
+
+}
+
+# Crear filtros para las variables, no tenemos el diccionario asique seran al ojo
+{
+S_def <- S_def %>%
+    mutate(
+      TRAMO_ESC = case_when(
+        CURSO_INS <= 4 ~ "Bajo",
+        CURSO_INS >= 5 & CURSO_INS <= 7 ~ "Medio",
+        CURSO_INS >= 8 ~ "Alto"
+      )
+    )
+# Filtros de genero para simplificacion  
+S_def <- S_def %>%
+    mutate(
+      GENERO = case_when(
+        SEXO == 1 ~ "Hombre",
+        SEXO >= 2 ~ "Mujer"
+      )
+    )  
+  
+#Eliminar Columna que sobra
+
+S_def <- S_def %>% select(-SEXO)
+S_def <- S_def %>% select(-EDAD_TIPO)
+head(S_def)  
+  
+}
+
+
+# Crear Tablas de defuncion: Age Gender Year
+
+print(generos)
+# Revision variables a explorar
+{
+generos <- unique(S_def$GENERO)
+# Revision variables:
+{  
+conteo_generos <- table(S_def$GENERO)
+conteo_genero_df <- as.data.frame(conteo_generos)
+names(conteo_genero_df) <- c("Generos", "Count")
+
+tramos <- unique(S_def$TRAMO_ESC)
+conteo_esc <- table(S_def$TRAMO_ESC)
+conteo_esc_df <- as.data.frame(conteo_esc)
+names(conteo_esc_df) <- c("Tramos", "Count")
+
+years <- unique(S_def$ANO_DEF)
+conteo_years <- table (S_def$ANO_DEF)
+conteo_years_df <- as.data.frame(conteo_years)
+names(conteo_years_df) <- c("Year", "Count")
+
+
+
+}
+}
+tablas_def <- list() #filtered_dfs, lista que contendra todos los df
+
+# Funcion para crear data frames filtrados
+crear_df_filtrado <- function(data, genero, tramo_escolaridad, year) {
+  df_filtrado <- data %>%
+    filter(GENERO == genero, TRAMO_ESC == tramo_escolaridad, ANO_DEF == year) %>%
+    group_by(EDAD_CANT) %>%
+    summarise(Count = n()) %>%
+    arrange(EDAD_CANT)
+  return(df_filtrado)
+  
+  #Revisar algunas variables:
+  
+  generos <- unique(S_def$GENERO)
+  tramos <- unique(S_def$TRAMO_ESC)
+  years <- unique(S_def$ANO_DEF)
+}
+
+for (genero in generos) {
+  for (tramo_esc in tramos) {
+    for (year in years) {
+      # Ponerle Nombre al data frame: GENERO_TRAMO_Año
+      df_nombre <- paste(genero, tramo_esc, year, sep = "_")
+      
+      # Rellenar la lista con las tablas de defuncion
+      tablas_def[[df_nombre]] <- crear_df_filtrado(S_def, genero, tramo_esc, year)
+    }
+  }
+}
+
+names(tablas_def) #revisar todos los df creados, deberian ser 2 (generos) x 3 (tramos) x (2019-1990=29) = 174 tablas
+df_inutiles <- names(tablas_def)[grepl("NA", names(tablas_def))] #crear lista de df con nombres que no deberian estar
+tablas_def <- tablas_def[!names(tablas_def) %in% df_inutiles] # dropear todos los dfs que no deberian estar
+
+#Cambiemos los nombres de las columnas para dejar bien la estructura.
+
+nombres_columnas <- c("Edad", "Defunciones")
+
+for (i in 1:length(tablas_def)) {
+  tablas_def[[i]] <- setNames(tablas_def[[i]], nombres_columnas)
+}
+
+names(tablas_def)
+#Explorar las tablas creadas para revisar que este todo OK.
+df_revision <- tablas_def[[1]]
+head(df_revision)
+str(df_revision)
+summary(df_revision)
+print(df_revision)
+#Plotear interaccion Mortalidad_edad
+ggplot(data = df_revision, aes(x = EDAD_CANT, y = Count)) +
+  geom_line() +
+  geom_point() + 
+  labs(title = "Muertes por edad",
+       x = "Edad",
+       y = "Count") +
+  theme_minimal() # aesthetics
+
+# Limpieza de tablas creadas
+{
+indices_hombre_bajo <- c(1:30)
+indices_hombre_medio <- c(31:60)
+indices_hombre_alto <- c(61:90)
+
+indices_mujer_bajo <- c(91:120)
+indices_mujer_medio <- c(121:150)
+indices_mujer_alto <- c(151:180)
+
+def_hombre_bajo <- tablas_def[indices_hombre_bajo]
+def_hombre_medio <- tablas_def[indices_hombre_medio]
+def_hombre_alto <- tablas_def[indices_hombre_alto]
+
+def_mujer_bajo <- tablas_def[indices_mujer_bajo]
+def_mujer_medio <- tablas_def[indices_mujer_medio]
+def_mujer_alto <- tablas_def[indices_mujer_alto]
+
+  }
+#Creemos los csv correspondientes a cada año y tramo de escolaridad.
+{
+#Cambiar directorio para dejarlo en donde queramos los csv
+
+#escoger un df para escribir sus csv, setiar directorio a carpeta con los
+
+setwd("C:/Users/Alfonso Orrego/OneDrive - Universidad Adolfo Ibanez/Simplex/UAI/Tesis/Tablas de vida/Longevidad y educacion/Datos/defun_1990_2019/Base de datos Muertes 1990-2017/Series defunciones CSV")
+#Revisar que este bien hecho el path
+getwd()
+
+escoger_df_def <- def_mujer_alto #ESCOGER EL DF PARA ESCRIBIR
+for (nombre in names(escoger_df_def)) {
+  # Pongamosle nombre
+  file_name <- paste0(nombre, ".csv")
+  
+  # Escribir el CSV, va a quedar guardado en el directorio actual.
+  write.csv(escoger_df_def[[nombre]], file = file_name, row.names = FALSE)
+}
+}
+
+#Nos devolvemos al directorio original
+setwd("C:/Users/Alfonso Orrego/OneDrive - Universidad Adolfo Ibanez/Simplex/UAI/Tesis/Tablas de vida/Longevidad y educacion/Datos/defun_1990_2019/Base de datos Muertes 1990-2017/Series CSV")
+#Revisar que este bien hecho el path
+getwd()
