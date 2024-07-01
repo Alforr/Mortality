@@ -1,1 +1,229 @@
+#Paquetes para forecasting de mortalidad, todos los grandes exitos.
+{
+install.packages("StMoMo")
+install.packages("vital")
+install.packages("MortalityForecast")
+install.packages("MortalitySmooth")
+install.packages('demography', dependencies = TRUE)
+install.packages("devtools")
+install.packages("fanplot")
+install.packages("HMDHFDplus")
+install_github("robjhyndman/demography")
+install.packages("ggplot2")
+install.packages("ggpubr")
+}
+
+# Abramos los que se requieran en el modelo en especifico a tratar
+{
+library(StMoMo)
+library(vital)
+library(demography)
+library(devtools)
+library(fanplot)
+library(HMDHFDplus)
+library(ggplot2)
+library(ggpubr)
+}
+# Robemos la funcion para procesar los valores web del HMD,
+{
+hmd.mx <- function(country, username, password, label = country) {
+  # Read raw MX and Exposure data
+  mx <- HMDHFDplus::readHMDweb(country, item = "Mx_1x1",
+                               username = username, password = password, fixup = TRUE)
+  pop <- HMDHFDplus::readHMDweb(country, item = "Exposures_1x1",
+                                username = username, password = password, fixup = TRUE)
+  
+  # Construct output
+  obj <- list(type = "mortality", label = label, lambda = 0)
+  obj$year <- sort(unique(mx[, "Year"]))
+  n <- length(obj$year)
+  m <- length(unique(mx[, "Age"]))
+  obj$age <- mx[seq(m), "Age"]
+  mnames <- names(mx)[-c(1:2, NCOL(mx))]
+  n.mort <- length(mnames)
+  obj$rate <- obj$pop <- list()
+  for (i in seq(n.mort)) {
+    obj$rate[[i]] <- matrix(mx[, i + 2], nrow = m, ncol = n)
+    obj$rate[[i]][obj$rate[[i]] < 0] <- NA
+    obj$pop[[i]] <- matrix(pop[, i + 2], nrow = m, ncol = n)
+    obj$pop[[i]][obj$pop[[i]] < 0] <- NA
+    dimnames(obj$rate[[i]]) <- dimnames(obj$pop[[i]]) <- list(obj$age, obj$year)
+  }
+  names(obj$pop) <- names(obj$rate) <- tolower(mnames)
+  
+  return(structure(obj, class = "demogdata"))
+}
+
+#' @rdname hmd
+#' @export
+hmd.e0 <- function(country, username, password) {
+  # Read raw e0 data
+  lt <- HMDHFDplus::readHMDweb(country, item = "E0per",
+                               username = username, password = password, fixup = TRUE)
+  # Convert to a ts object
+  ts(lt[, -1], start = lt[1, 1], frequency = 1)
+}
+
+
+#' @rdname hmd
+#' @export
+hmd.pop <- function(country, username, password, label = country) {
+  # Read raw data
+  pop <- HMDHFDplus::readHMDweb(country, item = "Population",
+                                username = username, password = password, fixup = FALSE)
+  
+  # Only keep 1 January populations
+  pop <- pop[, !grepl("2$", colnames(pop))]
+  mnames <- names(pop)
+  mnames <- sub("1$", "", mnames)
+  names(pop) <- mnames
+  
+  # Construct output
+  obj <- list(type = "population", label = label, lambda = 0)
+  obj$year <- sort(unique(pop[, "Year"]))
+  n <- length(obj$year)
+  m <- length(unique(pop[, "Age"]))
+  obj$age <- pop[seq(m), "Age"]
+  pop <- pop[, !(mnames %in% c("Year","Age","OpenInterval"))]
+  n.pop <- NCOL(pop)
+  obj$pop <- list()
+  for (i in seq(n.pop)) {
+    obj$pop[[i]] <- matrix(pop[, i], nrow = m, ncol = n)
+    obj$pop[[i]][obj$pop[[i]] < 0] <- NA
+    dimnames(obj$pop[[i]]) <- list(obj$age, obj$year)
+  }
+  names(obj$pop) <- tolower(colnames(pop))
+  
+  return(structure(obj, class = "demogdata"))
+}
+}
+
+# Datos de usuario y contraseña para la pagina del HMD:
+{
+username <- "alfonso.orregodv@gmail.com"
+password <- "zxB2jzkw*7!NVkQ"
+chile_mortality <- readHMDweb("CHL", "mltper_1x1", username, password) #una forma de extraer la informacion del HMD
+chile_mortality <- hmd.mx("CHL", username, password, label = "Chile") #otra forma de extraer la informacion del HMD, en formato tipo hyndman
+chl_stmomo <- StMoMoData(chile_mortality, series = "total") #serie de datos total
+chl_stmomo_male <- StMoMoData(chile_mortality, series = "male") #serie de datos para hombre
+chl_stmomo_female <- StMoMoData(chile_mortality, series = "female") #serie de datos para mujeres
+}
+#Experimentemos con Chile
+{
+  #Partamos con un Lee-Carter y un CBD para comparacion
+ages.fit <- 60:110 #rango de edades a considerar
+years.ft <- 1992:2019 #rango de años a considerar
+LC <- lc(link = "logit") # Formato distribucion binomial
+CBD <- cbd() #CBD con distribucion binomial
+
+LCfit_CHL_male <- fit(lc(), data = chl_stmomo_male, ages.fit = ages.fit,
+                 years.fit = years.ft) #Modelo LC con distribucion binomial para Hombres
+LCfit_CHL_female <- fit(lc(), data = chl_stmomo_female, ages.fit = ages.fit,
+                      years.fit = years.ft) #Modelo LC con distribucion binomial para Mujeres
+LCfit_CHL_total <- fit(lc(), data = chl_stmomo, ages.fit = ages.fit,
+                      years.fit = years.ft) #Modelo LC con distribucion binomial para Total
+CBDfit_CHL_male <- fit(cbd(), data = chl_stmomo_male, ages.fit = ages.fit,
+                       years.fit = years.ft) #Modelo CBD para hombre de comparacion, bueno para edades avanzadas
+CBDfit_CHL_female <- fit(cbd(), data = chl_stmomo_female, ages.fit = ages.fit,
+                       years.fit = years.ft) #Modelo CBD para mujeres de comparacion 
+CBDfit_CHL_total <- fit(cbd(), data = chl_stmomo, ages.fit = ages.fit,
+                       years.fit = years.ft) #Modelo CBD para totales de comparacion
+}
+# Plotiemos las comparaciones entre modelos para cada uno (6)
+{
+  #Plot Hombres
+plot(LCfit_CHL_male, nCol = 3)
+plot(CBDfit_CHL_male, parametricbx = FALSE)
+  
+#Plot Mujeres
+plot(LCfit_CHL_female, nCol = 3)
+plot(CBDfit_CHL_female, parametricbx = FALSE)
+
+#Plot Total
+plot(LCfit_CHL_total, nCol = 3)
+plot(CBDfit_CHL_total, parametricbx = FALSE)
+
+# Revisemos goodness of fit para los modelos
+  # Residuales del Lee-Carter
+LCres_male <- residuals(LCfit_CHL_male)
+LCres_female <- residuals(LCfit_CHL_female)
+LCres_total <- residuals(LCfit_CHL_total)
+  #Residuales del CBD
+CBDres_male <- residuals(CBDfit_CHL_male)
+CBDres_female <- residuals(CBDfit_CHL_female)
+CBDres_total <- residuals(CBDfit_CHL_total)
+
+  #Plotiemos las desviaciones
+plot(LCres_male, type = "scatter", reslim = c(-3.5, 3.5)) #Scatterplot
+plot(LCres_female, type = "scatter", reslim = c(-3.5, 3.5)) #Scatterplot
+plot(LCres_total, type = "scatter", reslim = c(-3.5, 3.5)) #Scatterplot
+
+plot(CBDres_male, type = "scatter", reslim = c(-3.5, 3.5)) #Scatterplot
+plot(CBDres_female, type = "scatter", reslim = c(-3.5, 3.5)) #Scatterplot
+plot(CBDres_total, type = "scatter", reslim = c(-3.5, 3.5)) #Scatterplot
+}
+#Veamos los criterios de informacion para los modelos (Akaike y Bayesiano)
+{
+  #LC
+AIC(LCfit_CHL_male)
+BIC(LCfit_CHL_male)
+AIC(LCfit_CHL_female)
+BIC(LCfit_CHL_female)
+AIC(LCfit_CHL_total)
+BIC(LCfit_CHL_total)
+  #CBD
+AIC(CBDfit_CHL_male)
+BIC(CBDfit_CHL_male)
+AIC(CBDfit_CHL_female)
+BIC(CBDfit_CHL_female)
+AIC(CBDfit_CHL_total)
+BIC(CBDfit_CHL_total)
+  # Hagamos una tabla con los valores de esto
+setwd("C:/Users/Alfonso Orrego/OneDrive - Universidad Adolfo Ibanez/Simplex/UAI/Tesis/Tablas de vida/Longevidad y educacion/Datos/Graficos/V.0.1")
+getwd() #Chequiemos que este bien el directorio donde guardaremos la tabla
+tabla_criterios <- matrix(nrow = 2, ncol = 6)
+rownames(tabla_criterios) <- c("AIC", "BIC")
+colnames(tabla_criterios) <- c("LC_Male", "LC_Female", "LC_Total", "CBD_Male", "CBD_Female", "CBD_Total")
+tabla_criterios[1, ] <- c(AIC(LCfit_CHL_male), AIC(LCfit_CHL_female), AIC(LCfit_CHL_total), AIC(CBDfit_CHL_male), AIC(CBDfit_CHL_female), AIC(CBDfit_CHL_total)) # AIC values
+tabla_criterios[2, ] <- c(BIC(LCfit_CHL_male), BIC(LCfit_CHL_female), BIC(LCfit_CHL_total), BIC(CBDfit_CHL_male), BIC(CBDfit_CHL_female), BIC(CBDfit_CHL_total)) # BIC values
+tabla_df <- as.data.frame(tabla_criterios) #transformamos en df para poder guardar
+table_plot <- ggtexttable(tabla_df, rows = c("AIC", "BIC"), theme = ttheme("classic", base_size = 6)) #Generamos la imagen
+ggsave("tabla_criterios_informacion.png", plot = table_plot, width = 6, height = 4) #Guardamos la tabla
+}
+
+  # Simulaciones de trayectoria para central death rate
+    #Primero hagamos Forecasting:
+      #Lee Carter
+{
+ano_f <- 30
+LCfor_male <- forecast(LCfit_CHL_male, h = ano_f)
+LCfor_female <- forecast(LCfit_CHL_female, h = ano_f)
+LCfor_total <- forecast(LCfit_CHL_total, h = ano_f)
+      #CBD
+CBDfor_male <- forecast(CBDfit_CHL_male, h = ano_f)
+CBDfor_female <- forecast(CBDfit_CHL_female, h = ano_f)
+CBDfor_total <- forecast(CBDfit_CHL_total, h = ano_f)
+
+#Si quisieramos armar un LC con ARIMA en vez de RWD: armemos uno para comparar. armemos con (1,1,2) que es el clasico de la literatura 
+ari <- c(1,1,2) #valores AR,I,MA del forecast 
+LCforArima_male <- forecast(LCfit_CHL_male, h = ano_f, kt.method = "iarima",
+                       kt.order = ari) #la lista corresponde a los valores de ARIMA(AR,I,MA) {PLUS: si se deja kt.order = NULL se activa el autoarima y se escoge el mejor modelo}
+LCforArima_female <- forecast(LCfit_CHL_female, h = ano_f, kt.method = "iarima",
+                            kt.order = ari) #la lista corresponde a los valores de ARIMA(AR,I,MA) {PLUS: si se deja kt.order = NULL se activa el autoarima y se escoge el mejor modelo}
+LCforArima_total <- forecast(LCfit_CHL_total, h = ano_f, kt.method = "iarima",
+                            kt.order = ari) #la lista corresponde a los valores de ARIMA(AR,I,MA) {PLUS: si se deja kt.order = NULL se activa el autoarima y se escoge el mejor modelo}
+  #Plot de las trayectorias centrales, y sus intervalos de confianza
+plot(LCfor_male, only.kt = TRUE) #plot del LC con RWD
+plot(LCforArima_male, only.kt = TRUE) #plot del LC con ARIMA(1,1,2)
+plot(CBDfor_male, only.kt = TRUE) #plot del CBD
+
+plot(LCfor_female, only.kt = TRUE) #plot del LC con RWD
+plot(LCforArima_female, only.kt = TRUE) #plot del LC con ARIMA(1,1,2)
+plot(CBDfor_female, only.kt = TRUE) #plot del CBD
+
+plot(LCfor_total, only.kt = TRUE) #plot del LC con RWD
+plot(LCforArima_total, only.kt = TRUE) #plot del LC con ARIMA(1,1,2)
+plot(CBDfor_total, only.kt = TRUE) #plot del CBD
+
+}
 
