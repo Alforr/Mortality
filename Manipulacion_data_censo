@@ -42,7 +42,7 @@ data <- data %>%
     )
   )
 #Borremos los NA que no tienen categoria ni nada, se pierden varios datos no categoralizables.
-na.omit(data$TRAMO_ESC)
+data <- na.omit(data)
 #Revisemos los datos de nivel aprobado
 valores_escolaridad <- table(data$nivel_aprobado)
 print(valores_escolaridad)
@@ -57,7 +57,7 @@ data <- data %>%
   )
 #Borremos la variable 1/2 de sexo de la base
 data <- data %>% select(-sexo)
-data <- na.omit(data)
+
 
 #Revisemos los datos de tramo esc
 valores_escolaridad <- table(data$TRAMO_ESC)
