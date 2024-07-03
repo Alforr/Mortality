@@ -88,16 +88,24 @@ ls()
 
 # Crear filtros para las variables, no tenemos el diccionario asique seran al ojo
 {
+  #filtro bajo:  curso 1:6 & Nivel =4 | curso=0 & nivel=5 ~ educacion basica (hasta 6to) 
+  #filtro medio: curso 1:6 & Nivel =3 | curso 7:8 & Nivel=4 | curso 1:4 & nivel =2
+  #filtro alto: curso 1:9 & Nivel =1 | curso=5 & nivel=2
 S_def <- S_def %>%
     mutate(
       TRAMO_ESC = case_when(
-        CURSO_INS <= 4 ~ "Bajo",
-        CURSO_INS >= 5 & CURSO_INS <= 7 ~ "Medio",
-        CURSO_INS >= 8 ~ "Alto"
+        (CURSO_INS <= 6 & NIVEL_INS == 4) | (CURSO_INS == 0 & NIVEL_INS == 5)  ~ "Bajo",
+        (CURSO_INS <= 6 & NIVEL_INS == 3) | (CURSO_INS > 6 & NIVEL_INS == 4) | (CURSO_INS <= 4 & NIVEL_INS == 2) ~ "Medio",
+        (CURSO_INS <= 9 & NIVEL_INS == 1) | (CURSO_INS == 5 & NIVEL_INS == 2) ~ "Alto",
+        TRUE ~ NA
       )
     )
-# Filtros de genero para simplificacion  
-S_def <- S_def %>%
+na_count_tramos <- sum(is.na(S_def$TRAMO_ESC)) #Hay 11.057 instancias sin informacion.
+print(na_count_tramos) 
+S_def <- na.omit(S_def)
+# Filtros de genero para simplificacion
+{
+  S_def <- S_def %>%
     mutate(
       GENERO = case_when(
         SEXO == 1 ~ "Hombre",
@@ -105,10 +113,16 @@ S_def <- S_def %>%
       )
     )  
   
-#Eliminar Columna que sobra
+}
+
+#Eliminar Columna que sobra, achiquemos base para manipulacion
 
 S_def <- S_def %>% select(-SEXO)
 S_def <- S_def %>% select(-EDAD_TIPO)
+S_def <- S_def %>% select(-DIA_DEF)
+S_def <- S_def %>% select(-MES_DEF)
+S_def <- S_def %>% select(-CURSO_INS)
+S_def <- S_def %>% select(-NIVEL_INS)
 head(S_def)  
   
 }
@@ -116,10 +130,11 @@ head(S_def)
 
 # Crear Tablas de defuncion: Age Gender Year
 
-print(generos)
+
 # Revision variables a explorar
 {
 generos <- unique(S_def$GENERO)
+  print(generos)
 # Revision variables:
 {  
 conteo_generos <- table(S_def$GENERO)
@@ -142,7 +157,7 @@ names(conteo_years_df) <- c("Year", "Count")
 }
 tablas_def <- list() #filtered_dfs, lista que contendra todos los df
 
-# Funcion para crear data frames filtrados
+# Funcion para crear data frames filtrados, aca se suele pegar el programa por alguna razon.
 crear_df_filtrado <- function(data, genero, tramo_escolaridad, year) {
   df_filtrado <- data %>%
     filter(GENERO == genero, TRAMO_ESC == tramo_escolaridad, ANO_DEF == year) %>%
@@ -167,6 +182,7 @@ for (genero in generos) {
       # Rellenar la lista con las tablas de defuncion
       tablas_def[[df_nombre]] <- crear_df_filtrado(S_def, genero, tramo_esc, year)
     }
+    
   }
 }
 
@@ -184,13 +200,13 @@ for (i in 1:length(tablas_def)) {
 
 names(tablas_def)
 #Explorar las tablas creadas para revisar que este todo OK.
-df_revision <- tablas_def[[1]]
+df_revision <- tablas_def[[62]]
 head(df_revision)
 str(df_revision)
 summary(df_revision)
 print(df_revision)
 #Plotear interaccion Mortalidad_edad
-ggplot(data = df_revision, aes(x = EDAD_CANT, y = Count)) +
+ggplot(data = df_revision, aes(x = Edad, y = Defunciones)) +
   geom_line() +
   geom_point() + 
   labs(title = "Muertes por edad",

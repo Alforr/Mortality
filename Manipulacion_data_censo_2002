@@ -1,0 +1,70 @@
+#Fijemos directorio donde esten los archivos del censo 2002
+{
+  setwd("C:/Users/Alfonso Orrego/OneDrive - Universidad Adolfo Ibanez/Simplex/UAI/Tesis/Tablas de vida/Longevidad y educacion/Datos/Censo/Censo 2002")
+getwd()
+}
+#Instalar/usar paquetes necesarios:
+{
+  library(haven)
+  library(readr)
+  library(lubridate)
+  library(dplyr)
+  library(tidyr)  
+  library(ggplot2) 
+}
+# Leer los csv de las tablas del censo por genero: reciclemos codigo del 92
+{
+  df_hombre_92 <- read.csv("Hombres_2002.csv", sep = ";")
+  df_mujer_92 <- read.csv("Mujeres_2002.csv", sep = ";")
+}
+# Trunquemos los df para que tengan rango de edad de 25:110 y los que no tengan sean 0s
+{
+  rango_edad_min_max <- 25:110
+  df_rango_edades <- data.frame(Edad = rango_edad_min_max)
+  df_mujer_92 <- df_rango_edades %>%
+    left_join(df_mujer_92, by = "Edad") %>%
+    replace_na(list(Cantidad = 0)) %>%
+    arrange(Edad)
+  df_hombre_92 <- df_rango_edades %>%
+    left_join(df_hombre_92, by = "Edad") %>%
+    replace_na(list(Cantidad = 0)) %>%
+    arrange(Edad)
+}
+#Definir categorias para el censo 2002 igual que el censo 92 y 17, 2:5 basica, 6:12 media, 13:16 alta
+{
+  df_mujer_92$esc_bajo <- rowSums(df_mujer_92[,2:5])
+  df_mujer_92$esc_medio <- rowSums(df_mujer_92[,6:12])
+  df_mujer_92$esc_alto <- rowSums(df_mujer_92[,13:18])
+  
+  df_hombre_92$esc_bajo <- rowSums(df_hombre_92[,2:5])
+  df_hombre_92$esc_medio <- rowSums(df_hombre_92[,6:12])
+  df_hombre_92$esc_alto <- rowSums(df_hombre_92[,13:18])
+}
+#Trasvasijemos a totales
+{
+  df_totales_92 <- df_hombre_92 %>%
+    inner_join(df_mujer_92, by = "Edad", suffix = c("_hombre","_mujer")) %>%
+    mutate(esc_bajo = esc_bajo_hombre + esc_bajo_mujer, esc_medio = esc_medio_hombre + esc_medio_mujer, esc_alto = esc_alto_hombre + esc_alto_mujer) %>%
+    select(Edad, esc_bajo,esc_medio, esc_alto) %>%
+    arrange(Edad)
+}
+# Limpiemos las columnas con las que construimos los escalones de escolaridad:
+{
+  df_hombre_92 <- df_hombre_92 %>%
+    select(-c(2:17))
+  df_mujer_92 <- df_mujer_92 %>%
+    select(-c(2:17))
+}
+# Agreguemos una columna de año para dejar ID para los modelos
+{
+  df_hombre_92$year <- 2002
+  df_mujer_92$year <- 2002
+  df_totales_92$year <- 2002
+}
+# Exportemos csvs:
+{
+  setwd("C:/Users/Alfonso Orrego/OneDrive - Universidad Adolfo Ibanez/Simplex/UAI/Tesis/Tablas de vida/Longevidad y educacion/Datos/Censo/Censo 2002/Filtrados")
+  write.csv(df_hombre_92, file = "hombre_02.csv", row.names = FALSE)
+  write.csv(df_mujer_92, file = "mujer_02.csv", row.names = FALSE)
+  write.csv(df_totales_92, file = "totales_02.csv", row.names = FALSE)
+}

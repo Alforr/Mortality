@@ -1,0 +1,80 @@
+#Fijemos directorio donde estan las tablas del Censo 1992
+setwd("C:/Users/Alfonso Orrego/OneDrive - Universidad Adolfo Ibanez/Simplex/UAI/Tesis/Tablas de vida/Longevidad y educacion/Datos/Censo/Censo 1992")
+getwd()
+
+#Instalar/usar paquetes necesarios:
+{
+  library(haven)
+  library(readr)
+  library(lubridate)
+  library(dplyr)
+  library(tidyr)  
+  library(ggplot2) 
+}
+# Leer los csv de las tablas del censo por genero
+{
+  df_hombre_92 <- read.csv("Hombre_92.csv", sep = ";")
+  df_mujer_92 <- read.csv("Mujer_92.csv", sep = ";")
+}
+# Trunquemos los df para que tengan rango de edad de 25:110 y los que no tengan sean 0s
+{
+  rango_edad_min_max <- 25:110
+  df_rango_edades <- data.frame(Edad = rango_edad_min_max)
+  df_mujer_92 <- df_rango_edades %>%
+    left_join(df_mujer_92, by = "Edad") %>%
+    replace_na(list(Cantidad = 0)) %>%
+    arrange(Edad)
+  df_hombre_92 <- df_rango_edades %>%
+    left_join(df_hombre_92, by = "Edad") %>%
+    replace_na(list(Cantidad = 0)) %>%
+    arrange(Edad)
+}
+# Borremos las columnas de categorias previamente hechas;
+{
+  df_mujer_92 <- df_mujer_92 %>% select(-esc_bajo)
+  df_mujer_92 <- df_mujer_92 %>% select(-esc_alto)
+  df_hombre_92 <- df_hombre_92 %>% select(-esc_bajo)
+  df_hombre_92 <- df_hombre_92 %>% select(-esc_alto)
+}
+# La categoria de años de estudio es de 0 a 20 , 0 es nunca asistio y 20 es el maximo valor posible.
+# X0 a X6(2:8); sin instruccion a 6to, X7 a X11(9:13) (hasta 3ero medio), X12 a X20(14:22) escolaridad alta.
+{
+  set.seed(123)
+  df_mujer_92$esc_bajo <- rowSums(df_mujer_92[,2:8])
+  df_mujer_92$esc_medio <- rowSums(df_mujer_92[,9:13])
+  df_mujer_92$esc_alto <- rowSums(df_mujer_92[,14:22])
+  
+  df_hombre_92$esc_bajo <- rowSums(df_hombre_92[,2:8])
+  df_hombre_92$esc_medio <- rowSums(df_hombre_92[,9:13])
+  df_hombre_92$esc_alto <- rowSums(df_hombre_92[,14:22])
+}
+#Trasvasijemos a totales
+{
+  df_totales_92 <- df_hombre_92 %>%
+    inner_join(df_mujer_92, by = "Edad", suffix = c("_hombre","_mujer")) %>%
+    mutate(esc_bajo = esc_bajo_hombre + esc_bajo_mujer, esc_medio = esc_medio_hombre + esc_medio_mujer, esc_alto = esc_alto_hombre + esc_alto_mujer) %>%
+    select(Edad, esc_bajo,esc_medio, esc_alto) %>%
+    arrange(Edad)
+  
+}
+# Limpiemos las columnas con las que construimos los escalones de escolaridad:
+{
+  df_hombre_92 <- df_hombre_92 %>%
+    select(-c(2:23))
+  df_mujer_92 <- df_mujer_92 %>%
+    select(-c(2:23))
+}
+# Agreguemos una columna de año para dejar ID para los modelos
+{
+  df_hombre_92$year <- 1992
+  df_mujer_92$year <- 1992
+  df_totales_92$year <- 1992
+}
+#Exportemos los csv de esto
+{
+  setwd("C:/Users/Alfonso Orrego/OneDrive - Universidad Adolfo Ibanez/Simplex/UAI/Tesis/Tablas de vida/Longevidad y educacion/Datos/Censo/Censo 1992/Procesados")
+  getwd()
+  write.csv(df_hombre_92, file = "hombre_92.csv", row.names = FALSE)
+  write.csv(df_mujer_92, file = "mujer_92.csv", row.names = FALSE)
+  write.csv(df_totales_92, file = "totales_92.csv", row.names = FALSE)
+}
