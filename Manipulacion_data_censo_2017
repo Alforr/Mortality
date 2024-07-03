@@ -1,0 +1,298 @@
+#Instalemos paquetes a usar:
+{
+install.packages("haven")
+  
+}  
+
+#Usemos los paquetes
+{
+library(haven)
+library(readr)
+library(lubridate)
+library(dplyr)
+library(tidyr)  
+library(ggplot2) 
+}
+
+#Manipulemos datos
+setwd("C:/Users/Alfonso Orrego/OneDrive - Universidad Adolfo Ibanez/Simplex/UAI/Tesis/Tablas de vida/Longevidad y educacion/Datos/Censo/csv-personas-censo-2017")
+getwd() #chequear que este bien el directorio para guardar el trabajo
+data <- read_dta("C:/Users/Alfonso Orrego/OneDrive - Universidad Adolfo Ibanez/Simplex/UAI/Tesis/Tablas de vida/Longevidad y educacion/Datos/Censo/censo_2017.dta")
+
+#Borremos filtros de stata inutiles:
+data <- data %>% select(-filtro_bajo)
+data <- data %>% select(-filtro_medio)
+data <- data %>% select(-filtro_alto)
+
+valores_escolaridad <- table(data$escolaridad)
+print(valores_escolaridad)
+
+#Generemos categorias de escolaridad inteligentemente: usaremos nivel que tiene mas posibles valores para explorar:
+#Valores nivel aprobado:
+#1:sala cuna, 2:Prekinder, 3:Kinder, 4: Especial o diferencial, 5: educacion basica.
+#6:primaria o preparatorio(sistema antiguo),7: Cientifico-humanista, 8:Tecnica profesional, 9:humanidades, 10:tecnica comercial/industrial/normalista
+#11:tecnico superior, 12: profesional, 13: magister, 14: doctorado
+#98: no aplica, 99: no esta.
+{
+  data <- data %>%
+    mutate(
+      nivel_aprobado = ifelse(nivel_aprobado > 15, NA, nivel_aprobado),
+      TRAMO_ESC = case_when(
+        nivel_aprobado <= 5 ~ "Bajo",
+        nivel_aprobado >= 6 & nivel_aprobado <= 10 ~ "Medio",
+        nivel_aprobado >= 11 ~ "Alto"
+      )
+    )
+}
+
+#Borremos los NA que no tienen categoria ni nada, se pierden varios datos no categoralizables.
+{
+  data <- na.omit(data)
+  #Revisemos los datos de nivel aprobado
+  valores_escolaridad <- table(data$nivel_aprobado)
+  print(valores_escolaridad) 
+}
+  
+
+#Generemos variables de genero con label para facilitar procesamiento futuro.
+{
+  data <- data %>%
+    mutate(
+      gender = case_when(
+        sexo == 1 ~ "male",
+        sexo ==  2 ~ "female"
+      )
+    )  
+}
+
+#Borremos la variable 1/2 de sexo de la base:
+{
+  data <- data %>% select(-sexo)
+  
+  ggplot(data, aes(x = TRAMO_ESC, y = edad)) +
+    geom_boxplot() +
+    labs(title = "Distribución de edad por tramo de escolaridad (2017)", x = "TRAMO_ESC", y = "edad")
+  
+}
+
+#Exploremos y veamos las tablas: por genero/tramo, para luego exportar.
+
+#Exportemos tablas: totales, hombres, mujeres:
+#Hombres
+{
+  bajo_df_hombre <- data %>%  #Hombre bajo
+    filter(TRAMO_ESC == "Bajo", gender == "male") %>%
+    group_by(edad) %>%
+    arrange(edad) %>%
+    summarise(Count = n()) 
+  nombres_columnas <- c("Edad", "Cantidad")
+  bajo_df_hombre <- setNames(bajo_df_hombre, nombres_columnas)
+  
+  
+  medio_df_hombre <- data %>%  #Hombre medio
+    filter(TRAMO_ESC == "Medio", gender == "male") %>%
+    group_by(edad) %>%
+    arrange(edad) %>%
+    summarise(Count = n()) 
+  nombres_columnas <- c("Edad", "Cantidad")
+  medio_df_hombre <- setNames(medio_df_hombre, nombres_columnas)
+  
+  
+  alto_df_hombre <- data %>%  #Hombre alto
+    filter(TRAMO_ESC == "Alto", gender == "male") %>%
+    group_by(edad) %>%
+    arrange(edad) %>%
+    summarise(Count = n()) 
+  nombres_columnas <- c("Edad", "Cantidad")
+  alto_df_hombre <- setNames(alto_df_hombre, nombres_columnas)
+  
+  
+}
+#Mujeres
+{
+  bajo_df_mujer <- data %>%  #Mujer bajo
+    filter(TRAMO_ESC == "Bajo", gender == "female") %>%
+    group_by(edad) %>%
+    arrange(edad) %>%
+    summarise(Count = n()) 
+  nombres_columnas <- c("Edad", "Cantidad")
+  bajo_df_mujer <- setNames(bajo_df_mujer, nombres_columnas)
+  
+  
+  medio_df_mujer <- data %>%  #Mujer medio
+    filter(TRAMO_ESC == "Medio", gender == "female") %>%
+    group_by(edad) %>%
+    arrange(edad) %>%
+    summarise(Count = n()) 
+  nombres_columnas <- c("Edad", "Cantidad")
+  medio_df_mujer <- setNames(medio_df_mujer, nombres_columnas)
+  
+  
+  alto_df_mujer <- data %>%  #Mujer alto
+    filter(TRAMO_ESC == "Alto", gender == "female") %>%
+    group_by(edad) %>%
+    arrange(edad) %>%
+    summarise(Count = n()) 
+  nombres_columnas <- c("Edad", "Cantidad")
+  alto_df_mujer <- setNames(alto_df_mujer, nombres_columnas)
+  
+  
+  
+}
+#Totales (como Hombres + Mujeres)
+{
+  df_totales_bajo <- bajo_df_hombre %>% #Bajo
+    inner_join(bajo_df_mujer, by = "Edad", suffix = c("_hombre", "_mujer")) %>%
+    mutate(Cantidad = Cantidad_hombre + Cantidad_mujer) %>%
+    select(Edad, Cantidad) %>%
+    arrange(Edad)
+  df_totales_medio <- medio_df_hombre %>% #Medio
+    inner_join(medio_df_mujer, by = "Edad", suffix = c("_hombre", "_mujer")) %>%
+    mutate(Cantidad = Cantidad_hombre + Cantidad_mujer) %>%
+    select(Edad, Cantidad) %>%
+    arrange(Edad)
+  df_totales_alto <- alto_df_hombre %>% #Medio
+    inner_join(alto_df_mujer, by = "Edad", suffix = c("_hombre", "_mujer")) %>%
+    mutate(Cantidad = Cantidad_hombre + Cantidad_mujer) %>%
+    select(Edad, Cantidad) %>%
+    arrange(Edad)
+}
+
+#Manipulemos los datos para que esten todas las edades del 0 al 110, si no estan rellenar con 0s.
+rango_edad_min_max <- 0:110
+df_rango_edades <- data.frame(Edad = rango_edad_min_max)
+
+#Left join a diestra y siniestra:
+{
+  bajo_df_mujer <- df_rango_edades %>%
+    left_join(bajo_df_mujer, by = "Edad") %>%
+    replace_na(list(Cantidad = 0)) %>%
+    arrange(Edad)
+  bajo_df_hombre <- df_rango_edades %>%
+    left_join(bajo_df_hombre, by = "Edad") %>%
+    replace_na(list(Cantidad = 0)) %>%
+    arrange(Edad)
+  df_totales_bajo <- df_rango_edades %>%
+    left_join(df_totales_bajo, by = "Edad") %>%
+    replace_na(list(Cantidad = 0)) %>%
+    arrange(Edad)
+  
+  medio_df_mujer <- df_rango_edades %>%
+    left_join(medio_df_mujer, by = "Edad") %>%
+    replace_na(list(Cantidad = 0)) %>%
+    arrange(Edad)
+  medio_df_hombre <- df_rango_edades %>%
+    left_join(medio_df_hombre, by = "Edad") %>%
+    replace_na(list(Cantidad = 0)) %>%
+    arrange(Edad)
+  df_totales_medio <- df_rango_edades %>%
+    left_join(df_totales_medio, by = "Edad") %>%
+    replace_na(list(Cantidad = 0)) %>%
+    arrange(Edad)
+  
+  alto_df_hombre <- df_rango_edades %>%
+    left_join(alto_df_hombre, by = "Edad") %>%
+    replace_na(list(Cantidad = 0)) %>%
+    arrange(Edad)
+  alto_df_mujer <- df_rango_edades %>%
+    left_join(alto_df_mujer, by = "Edad") %>%
+    replace_na(list(Cantidad = 0)) %>%
+    arrange(Edad)
+  df_totales_alto <- df_rango_edades %>%
+    left_join(df_totales_alto, by = "Edad") %>%
+    replace_na(list(Cantidad = 0)) %>%
+    arrange(Edad)
+  
+  
+}
+
+#Exportemos Tablas csv:
+{
+  write.csv(alto_df_hombre, file = "alto_hombre.csv", row.names = FALSE)
+  write.csv(medio_df_hombre, file = "medio_hombre.csv", row.names = FALSE)
+  write.csv(bajo_df_hombre, file = "bajo_hombre.csv", row.names = FALSE)
+  
+  write.csv(alto_df_mujer, file = "alto_mujer.csv", row.names = FALSE)
+  write.csv(medio_df_mujer, file = "medio_mujer.csv", row.names = FALSE)
+  write.csv(bajo_df_mujer, file = "bajo_mujer.csv", row.names = FALSE)
+  
+  write.csv(df_totales_alto, file = "alto_total.csv", row.names = FALSE)
+  write.csv(df_totales_medio, file = "medio_total.csv", row.names = FALSE)
+  write.csv(df_totales_bajo, file = "bajo_total.csv", row.names = FALSE)
+  
+}
+
+#Revisemos los datos de tramo esc
+{
+  valores_escolaridad <- table(data$TRAMO_ESC)
+  print(valores_escolaridad)
+}  
+
+#Generemos los data frames de cada categoria
+{
+  tramos <- unique(data$TRAMO_ESC)
+  generos <- unique(data$gender)
+  tablas_censo <- list() #filtered_dfs, lista que contendra todos los df
+  crear_df_filtrado <- function(data, genero, tramo_escolaridad) {
+    df_filtrado <- data %>%
+      filter(gender == genero, TRAMO_ESC == tramo_escolaridad) %>%
+      group_by(edad) %>%
+      summarise(Count = n()) %>%
+      arrange(edad)
+    return(df_filtrado)
+  }
+}
+
+# Modo for:
+{
+  for (genero in generos) {
+    for (tramo_esc in tramos) {
+      # Ponerle Nombre al data frame: GENERO_TRAMO_Año
+      df_nombre <- paste(genero, tramo_esc, sep = "_")
+      
+      # Rellenar la lista con las tablas de defuncion
+      tablas_censo[[df_nombre]] <- crear_df_filtrado(data, genero, tramo_esc)
+    }
+  }
+}
+
+
+#Chequiemos que las cosas estan bien: 
+{
+df_revision <- tablas_censo[[1]]
+head(df_revision)
+str(df_revision)
+summary(df_revision)
+print(df_revision)
+suma_columna <- sum(df_revision$Count, na.rm = TRUE)
+print(suma_columna)
+}
+
+#Cambiemos el nombre de las columnas para que este todo bien formateado
+nombres_columnas <- c("Edad", "Cantidad")
+
+for (i in 1:length(tablas_censo)) {
+  tablas_censo[[i]] <- setNames(tablas_censo[[i]], nombres_columnas)
+}
+
+#Plotear poblacion:
+ggplot(data = df_revision, aes(x = Edad, y = Cantidad)) +
+  geom_line() +
+  geom_point() + 
+  labs(title = "Cantidad de gente por edad",
+       x = "Edad",
+       y = "Cantidad") +
+  theme_minimal() # aesthetics
+ 
+#Escribamos los csv para guardarlos:
+setwd("C:/Users/Alfonso Orrego/OneDrive - Universidad Adolfo Ibanez/Simplex/UAI/Tesis/Tablas de vida/Longevidad y educacion/Datos/Censo/csv-personas-censo-2017")
+getwd() #chequear que este bien el directorio para guardar el trabajo
+
+escoger_df <- tablas_censo #ESCOGER EL DF PARA ESCRIBIR
+for (nombre in names(escoger_df)) {
+  # Pongamosle nombre
+  file_name <- paste0(nombre, ".csv")
+  
+  # Escribir el CSV, va a quedar guardado en el directorio actual.
+  write.csv(escoger_df[[nombre]], file = file_name, row.names = FALSE)
+}
