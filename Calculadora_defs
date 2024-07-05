@@ -1,0 +1,163 @@
+Librerias
+{
+  library(haven)
+  library(readr)
+  library(lubridate)
+  library(dplyr)
+  library(tidyr)  
+  library(ggplot2)   
+  library(stringr)
+}
+
+#Importar datos de defunciones: nombre son genero_tramo_año (EJ: Hombre_bajo_1990), necesito promedio de 3 años al rededor de los censos.
+{ 
+  #Hombre bajo
+  #años que necesito 91-92-93, 01-02-03, 16-17-18
+  setwd("C:/Users/Alfonso Orrego/OneDrive - Universidad Adolfo Ibanez/Simplex/UAI/Tesis/Tablas de vida/Longevidad y educacion/Datos/Replicacion Estudio/Hombre/Bajo")
+  getwd()
+  file_list <- list.files(path =getwd(), pattern = "\\.csv$", full.names = TRUE)
+  data_list <- lapply(file_list, read.csv)
+  names(data_list) <- basename(file_list)
+  key_column <- "Edad"
+  defunciones_hombre_bajo <- Reduce(function(x, y) left_join(x, y, by = key_column), data_list)
+  names(defunciones_hombre_bajo)[2:4] <- c("1991", "1992", "1993")
+  names(defunciones_hombre_bajo)[5:7] <- c("2001", "2002", "2003")
+  names(defunciones_hombre_bajo)[8:10] <- c("2016", "2017", "2018")
+  
+  #Hombre medio
+  setwd("C:/Users/Alfonso Orrego/OneDrive - Universidad Adolfo Ibanez/Simplex/UAI/Tesis/Tablas de vida/Longevidad y educacion/Datos/Replicacion Estudio/Hombre/Medio")
+  getwd()
+  file_list <- list.files(path = getwd(), pattern = "\\.csv$", full.names = TRUE)
+  data_list <- lapply(file_list, read.csv)
+  names(data_list) <- basename(file_list)
+  key_column <- "Edad"
+  defunciones_hombre_medio <- Reduce(function(x, y) left_join(x, y, by = key_column), data_list)
+  names(defunciones_hombre_medio)[2:4] <- c("1991", "1992", "1993")
+  names(defunciones_hombre_medio)[5:7] <- c("2001", "2002", "2003")
+  names(defunciones_hombre_medio)[8:10] <- c("2016", "2017", "2018")
+  
+  #Hombre alto
+  setwd("C:/Users/Alfonso Orrego/OneDrive - Universidad Adolfo Ibanez/Simplex/UAI/Tesis/Tablas de vida/Longevidad y educacion/Datos/Replicacion Estudio/Hombre/Alto")
+  file_list <- list.files(path = getwd(), pattern = "\\.csv$", full.names = TRUE)
+  data_list <- lapply(file_list, read.csv)
+  names(data_list) <- basename(file_list)
+  key_column <- "Edad"
+  defunciones_hombre_alto <- Reduce(function(x, y) left_join(x, y, by = key_column), data_list)
+  names(defunciones_hombre_alto)[2:4] <- c("1991", "1992", "1993")
+  names(defunciones_hombre_alto)[5:7] <- c("2001", "2002", "2003")
+  names(defunciones_hombre_alto)[8:10] <- c("2016", "2017", "2018")
+  
+  #Mujer bajo
+  setwd("C:/Users/Alfonso Orrego/OneDrive - Universidad Adolfo Ibanez/Simplex/UAI/Tesis/Tablas de vida/Longevidad y educacion/Datos/Replicacion Estudio/Mujeres/Bajo")
+  file_list <- list.files(path = getwd(), pattern = "\\.csv$", full.names = TRUE)
+  data_list <- lapply(file_list, read.csv)
+  names(data_list) <- basename(file_list)
+  key_column <- "Edad"
+  defunciones_mujer_bajo <- Reduce(function(x, y) left_join(x, y, by = key_column), data_list)
+  names(defunciones_mujer_bajo)[2:4] <- c("1991", "1992", "1993")
+  names(defunciones_mujer_bajo)[5:7] <- c("2001", "2002", "2003")
+  names(defunciones_mujer_bajo)[8:10] <- c("2016", "2017", "2018")
+  
+  #Mujer medio
+  setwd("C:/Users/Alfonso Orrego/OneDrive - Universidad Adolfo Ibanez/Simplex/UAI/Tesis/Tablas de vida/Longevidad y educacion/Datos/Replicacion Estudio/Mujeres/Medio")
+  file_list <- list.files(path = getwd(), pattern = "\\.csv$", full.names = TRUE)
+  data_list <- lapply(file_list, read.csv)
+  names(data_list) <- basename(file_list)
+  key_column <- "Edad"
+  defunciones_mujer_medio <- Reduce(function(x, y) left_join(x, y, by = key_column), data_list)
+  names(defunciones_mujer_medio)[2:4] <- c("1991", "1992", "1993")
+  names(defunciones_mujer_medio)[5:7] <- c("2001", "2002", "2003")
+  names(defunciones_mujer_medio)[8:10] <- c("2016", "2017", "2018")
+  
+  #Mujer alto
+  setwd("C:/Users/Alfonso Orrego/OneDrive - Universidad Adolfo Ibanez/Simplex/UAI/Tesis/Tablas de vida/Longevidad y educacion/Datos/Replicacion Estudio/Mujeres/Alto")
+  file_list <- list.files(path = getwd(), pattern = "\\.csv$", full.names = TRUE)
+  data_list <- lapply(file_list, read.csv)
+  names(data_list) <- basename(file_list)
+  key_column <- "Edad"
+  defunciones_mujer_alto <- Reduce(function(x, y) left_join(x, y, by = key_column), data_list)
+  names(defunciones_mujer_alto)[2:4] <- c("1991", "1992", "1993")
+  names(defunciones_mujer_alto)[5:7] <- c("2001", "2002", "2003")
+  names(defunciones_mujer_alto)[8:10] <- c("2016", "2017", "2018")
+  
+}
+
+#Calcular promedios de tres años
+{
+  defunciones_hombre_bajo <- defunciones_hombre_bajo %>%
+    mutate(
+      prom_1991_1993 = round(rowMeans(select(., 2:4), na.rm = TRUE)),
+      prom_2001_2003 = round(rowMeans(select(., 5:7), na.rm = TRUE)),
+      prom_2016_2018 = round(rowMeans(select(., 8:10), na.rm = TRUE))
+    )
+  defunciones_hombre_medio <- defunciones_hombre_medio %>%
+    mutate(
+      prom_1991_1993 = round(rowMeans(select(., 2:4), na.rm = TRUE)),
+      prom_2001_2003 = round(rowMeans(select(., 5:7), na.rm = TRUE)),
+      prom_2016_2018 = round(rowMeans(select(., 8:10), na.rm = TRUE))
+    )
+  defunciones_hombre_alto <- defunciones_hombre_alto %>%
+    mutate(
+      prom_1991_1993 = round(rowMeans(select(., 2:4), na.rm = TRUE)),
+      prom_2001_2003 = round(rowMeans(select(., 5:7), na.rm = TRUE)),
+      prom_2016_2018 = round(rowMeans(select(., 8:10), na.rm = TRUE))
+    )
+  defunciones_mujer_alto <- defunciones_mujer_alto %>%
+    mutate(
+      prom_1991_1993 = round(rowMeans(select(., 2:4), na.rm = TRUE)),
+      prom_2001_2003 = round(rowMeans(select(., 5:7), na.rm = TRUE)),
+      prom_2016_2018 = round(rowMeans(select(., 8:10), na.rm = TRUE))
+    )
+  defunciones_mujer_medio <- defunciones_mujer_medio %>%
+    mutate(
+      prom_1991_1993 = round(rowMeans(select(., 2:4), na.rm = TRUE)),
+      prom_2001_2003 = round(rowMeans(select(., 5:7), na.rm = TRUE)),
+      prom_2016_2018 = round(rowMeans(select(., 8:10), na.rm = TRUE))
+    )
+  defunciones_mujer_bajo <- defunciones_mujer_bajo %>%
+    mutate(
+      prom_1991_1993 = round(rowMeans(select(., 2:4), na.rm = TRUE)),
+      prom_2001_2003 = round(rowMeans(select(., 5:7), na.rm = TRUE)),
+      prom_2016_2018 = round(rowMeans(select(., 8:10), na.rm = TRUE))
+    )
+}
+
+# Borrar todas las otras columnas que no sean promedios
+{
+  defunciones_mujer_bajo <- defunciones_mujer_bajo %>%
+    select(-2:-10)
+  defunciones_mujer_medio <- defunciones_mujer_medio %>%
+    select(-2:-10)
+  defunciones_mujer_alto <- defunciones_mujer_alto %>%
+    select(-2:-10)
+  
+  defunciones_hombre_bajo <- defunciones_hombre_bajo %>%
+    select(-2:-10)
+  defunciones_hombre_medio <- defunciones_hombre_medio %>%
+    select(-2:-10)
+  defunciones_hombre_alto <- defunciones_hombre_alto %>%
+    select(-2:-10)
+  
+}
+# Armar los totales:
+{
+  defunciones_totales_bajo <- defunciones_hombre_bajo %>% #Bajo
+    inner_join(defunciones_mujer_bajo, by = "Edad", suffix = c("_hombre", "_mujer")) %>%
+    mutate(prom_1991_1993 = prom_1991_1993_hombre + prom_1991_1993_mujer,prom_2001_2003 = prom_2001_2003_hombre + prom_2001_2003_mujer, prom_2016_2018 = prom_2016_2018_hombre + prom_2016_2018_mujer) %>%
+    select(Edad, prom_1991_1993,prom_2001_2003,prom_2016_2018 ) %>%
+    arrange(Edad)
+}
+
+
+
+# Exportemos los promedios 
+{
+  setwd("C:/Users/Alfonso Orrego/OneDrive - Universidad Adolfo Ibanez/Simplex/UAI/Tesis/Tablas de vida/Longevidad y educacion/Datos/Replicacion Estudio")
+  write.csv(defunciones_hombre_alto, file = "alto_hombre.csv", row.names = FALSE)
+  write.csv(defunciones_hombre_medio, file = "medio_hombre.csv", row.names = FALSE)
+  write.csv(defunciones_hombre_bajo, file = "bajo_hombre.csv", row.names = FALSE)
+  
+  write.csv(defunciones_mujer_alto, file = "alto_mujer.csv", row.names = FALSE)
+  write.csv(defunciones_mujer_medio, file = "medio_mujer.csv", row.names = FALSE)
+  write.csv(defunciones_mujer_bajo, file = "bajo_mujer.csv", row.names = FALSE)
+}
