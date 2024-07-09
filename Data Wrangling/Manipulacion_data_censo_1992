@@ -37,16 +37,16 @@ getwd()
   df_hombre_92 <- df_hombre_92 %>% select(-esc_alto)
 }
 # La categoria de años de estudio es de 0 a 20 , 0 es nunca asistio y 20 es el maximo valor posible.
-# X0 a X6(2:8); sin instruccion a 6to, X7 a X11(9:13) (hasta 3ero medio), X12 a X20(14:22) escolaridad alta.
+# X0 a X6(2:8); sin instruccion a 6to, X7 a X11(9:14) (hasta 4to medio), X12 a X20(15:22) escolaridad alta.
 {
   set.seed(123)
   df_mujer_92$esc_bajo <- rowSums(df_mujer_92[,2:8])
-  df_mujer_92$esc_medio <- rowSums(df_mujer_92[,9:13])
-  df_mujer_92$esc_alto <- rowSums(df_mujer_92[,14:22])
+  df_mujer_92$esc_medio <- rowSums(df_mujer_92[,9:14])
+  df_mujer_92$esc_alto <- rowSums(df_mujer_92[,15:22])
   
   df_hombre_92$esc_bajo <- rowSums(df_hombre_92[,2:8])
-  df_hombre_92$esc_medio <- rowSums(df_hombre_92[,9:13])
-  df_hombre_92$esc_alto <- rowSums(df_hombre_92[,14:22])
+  df_hombre_92$esc_medio <- rowSums(df_hombre_92[,9:14])
+  df_hombre_92$esc_alto <- rowSums(df_hombre_92[,15:22])
 }
 #Trasvasijemos a totales
 {

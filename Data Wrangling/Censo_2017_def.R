@@ -119,3 +119,5 @@
   write.csv(df_total_17, "df_total_17_table.csv", row.names = FALSE)
   write.csv(df_proportions, "proporciones_edad_2017.csv", row.names = FALSE)
   
+}  
+  

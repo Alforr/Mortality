@@ -30,14 +30,14 @@ getwd()
     replace_na(list(Cantidad = 0)) %>%
     arrange(Edad)
 }
-#Definir categorias para el censo 2002 igual que el censo 92 y 17, 2:5 basica, 6:12 media, 13:16 alta
+#Definir categorias para el censo 2002 igual que el censo 92 y 17, 2:6 basica, 7:12 media, 13:16 alta
 {
-  df_mujer_92$esc_bajo <- rowSums(df_mujer_92[,2:5])
-  df_mujer_92$esc_medio <- rowSums(df_mujer_92[,6:12])
+  df_mujer_92$esc_bajo <- rowSums(df_mujer_92[,2:6])
+  df_mujer_92$esc_medio <- rowSums(df_mujer_92[,7:12])
   df_mujer_92$esc_alto <- rowSums(df_mujer_92[,13:18])
   
-  df_hombre_92$esc_bajo <- rowSums(df_hombre_92[,2:5])
-  df_hombre_92$esc_medio <- rowSums(df_hombre_92[,6:12])
+  df_hombre_92$esc_bajo <- rowSums(df_hombre_92[,2:6])
+  df_hombre_92$esc_medio <- rowSums(df_hombre_92[,7:12])
   df_hombre_92$esc_alto <- rowSums(df_hombre_92[,13:18])
 }
 #Trasvasijemos a totales
