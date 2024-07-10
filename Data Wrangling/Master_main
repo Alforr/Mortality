@@ -467,3 +467,101 @@ rm(df_rango_edades)
 }  
 # Limpieza informacion innecesaria:
 rm(anos_f_unique,curso,curso_f_unique,niveles,nivel_f_unique,sexo_f_unique)
+# Truncar los df del censo 2017:
+{
+  df_rango_edades <- data.frame(edad = rango_edad_min_max)
+  nombres_columnas <- c("Edad", "esc_bajo","NA", "esc_medio","esc_alto")
+  df_mujer_17 <- df_rango_edades %>%
+    left_join(df_mujer_17, by = "edad") %>%
+    replace_na(list(Cantidad = 0)) %>%
+    arrange(edad)
+  df_hombre_17 <- df_rango_edades %>%
+    left_join(df_hombre_17, by = "edad") %>%
+    replace_na(list(Cantidad = 0)) %>%
+    arrange(edad)
+  df_total_17 <- df_rango_edades %>%
+    left_join(df_total_17, by = "edad") %>%
+    replace_na(list(Cantidad = 0)) %>%
+    arrange(edad)
+  colnames(df_mujer_17) <- nombres_columnas
+  colnames(df_hombre_17) <- nombres_columnas
+  colnames(df_total_17) <- nombres_columnas
+  df_mujer_17$year <- 2017
+  df_hombre_17$year <- 2017
+  df_total_17$year <- 2017
+  df_mujer_17 <- df_mujer_17 %>%
+    select(Edad, esc_bajo,esc_medio,esc_alto,year,"NA")
+  df_hombre_17 <- df_hombre_17 %>%
+    select(Edad, esc_bajo,esc_medio,esc_alto,year,"NA")
+  df_total_17 <- df_total_17 %>%
+    select(Edad, esc_bajo,esc_medio,esc_alto,year,"NA")
+  rm(nombres_columnas)
+}
+rm(proporciones_propio)
+# Tablas vida: edad 25 a 100 años. Tomaremos varios caminos: sin promedio de años, promedio de 2 años, promedio de 3 años y promedio de 4 años por genero por tramo y totales.
+  {
+    create_life_table <- function(death_rates) { # Quedo horrible esta, usare metodo INE y Chiang
+      n <- length(death_rates)
+      lx <- numeric(n)
+      dx <- numeric(n)
+      Lx <- numeric(n)
+      Tx <- numeric(n)
+      ex <- numeric(n)
+      
+      # Inicio en 100.000
+      lx[1] <- 100000
+      for (i in 1:(n-1)) {
+        dx[i] <- lx[i] * death_rates[i]
+        lx[i + 1] <- lx[i] - dx[i]
+        Lx[i] <- (lx[i] + lx[i + 1]) / 2
+      }
+      
+      dx[n] <- lx[n] * death_rates[n]
+      Lx[n] <- lx[n] / death_rates[n]
+      
+      Tx[n] <- Lx[n]
+      for (i in (n-1):1) {
+        Tx[i] <- Lx[i] + Tx[i + 1]
+      }
+      
+      ex <- Tx / lx
+      
+      return(data.frame(age = 0:(n-1), lx = lx, dx = dx, Lx = Lx, Tx = Tx, ex = ex))
+    }
+  }
+# Sin tramos:
+{
+  # Totales:
+  tabla_92_totales <- defs %>%
+    filter(Ano_fa == 1992) %>% 
+    group_by(Edad, tramo_esc) %>% # agregar sexo para las tablas por genero
+    summarise(Count = n(), .groups = 'drop') %>% 
+    pivot_wider(names_from = tramo_esc, values_from = Count, values_fill = list(Count = 0)) 
+  
+  tabla_92_totales <- df_totales_92 %>% #tengamos los valores de muerte y vida juntos
+    left_join(tabla_92_totales, by = "Edad") %>%
+    replace_na(list(Cantidad = 0)) %>%
+    arrange(Edad)
+  tabla_92_totales <- tabla_92_totales %>% #death rate bajo
+    mutate(mx_bajo = ifelse(esc_bajo != 0, baja / esc_bajo, NA))
+  tabla_92_totales <- tabla_92_totales %>% #death rate medio
+    mutate(mx_medio = ifelse(esc_medio != 0, media / esc_medio, NA))
+  tabla_92_totales <- tabla_92_totales %>% #death rate alto
+    mutate(mx_alto = ifelse(esc_alto != 0, alta / esc_alto, NA))
+  #Borremos algunas columnas que sobran: NA, year
+  tabla_92_totales <- tabla_92_totales %>%
+    select(-year,-"NA",-mx_baja)
+  
+ #Apliquemos funcion a ver si funciona:
+  mx_totales_bajo_92 <- tabla_92_totales$mx_bajo
+  mx_totales_bajo_92 <- na.omit(mx_totales_bajo_92) #hasta 99, tope puede ser 100 por truncado del INE en la edad encuestada en el censo
+  tabla_92_totales_bajo <- create_life_table(mx_totales_bajo_92)
+  ggplot(tabla_92_totales_bajo, aes(x = age, y = ex)) +
+    geom_line() +
+    labs(title = "Expectativa de vida por edad (1992)", x = "Age", y = "Life Expectancy (ex)")
+  
+  
+  mx_totales_medio_92 <- tabla_92_totales$mx_medio
+  mx_totales_alto_92 <- tabla_92_totales$mx_alto
+ 
+}
