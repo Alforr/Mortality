@@ -1,0 +1,62 @@
+# Armado de tabla de vida con solo rango de edad y tasas de mortalidad especifica por edad.
+# Sin tramos:
+{
+  # Totales:
+  tabla_92_totales <- defs %>%
+    filter(Ano_fa == 1992) %>% 
+    group_by(Edad, tramo_esc) %>% # agregar sexo para las tablas por genero
+    summarise(Count = n(), .groups = 'drop') %>% 
+    pivot_wider(names_from = tramo_esc, values_from = Count, values_fill = list(Count = 0)) 
+  
+  tabla_92_totales <- df_totales_92 %>% #tengamos los valores de muerte y vida juntos
+    left_join(tabla_92_totales, by = "Edad") %>%
+    replace_na(list(Cantidad = 0)) %>%
+    arrange(Edad)
+  tabla_92_totales <- tabla_92_totales %>% #death rate bajo
+    mutate(mx_bajo = ifelse(esc_bajo != 0, baja / esc_bajo, NA))
+  tabla_92_totales <- tabla_92_totales %>% #death rate medio
+    mutate(mx_medio = ifelse(esc_medio != 0, media / esc_medio, NA))
+  tabla_92_totales <- tabla_92_totales %>% #death rate alto
+    mutate(mx_alto = ifelse(esc_alto != 0, alta / esc_alto, NA))
+  tabla_92_totales <- tabla_92_totales %>% #death rate central de todos
+    mutate(mx_st = ifelse(esc_bajo != 0, (baja+media+alta)/(esc_bajo+esc_medio+esc_alto),NA))
+  #Borremos algunas columnas que sobran: NA, year
+  tabla_92_totales <- tabla_92_totales %>%
+    select(-year,-"NA")
+  rm(TV_92_totales)
+  #Vamos sacando lo que necesitamos: armemos tabla de vida cohorte para todos
+  TV_92_totales <- data.frame(matrix(nrow = nrow(tabla_92_totales), ncol = 0))
+  TV_92_totales$Edad <- tabla_92_totales$Edad
+  TV_92_totales$Mx <- tabla_92_totales$mx_st
+  TV_92_totales <- TV_92_totales %>% filter(Edad >= 25 & Edad <= 99)
+  fn <- 0.5 #Distribucion normal de muertes en el año, simplifica la vida y calculos
+  TV_92_totales <- TV_92_totales %>%
+    mutate(qx = ifelse(Mx != 0, Mx / (1+fn*Mx))) #setup probabilidad de muerte en un año
+  TV_92_totales$lx[1] <- 100000
+  TV_92_totales$dx[1] <- TV_92_totales$lx[1] * TV_92_totales$qx[1]
+  for (i in 2:nrow(TV_92_totales)) { #Armar las columnas de lx  y dx
+    TV_92_totales$lx[i] <- TV_92_totales$lx[i-1] - TV_92_totales$dx[i-1]
+    TV_92_totales$dx[i] <- TV_92_totales$lx[i] * TV_92_totales$qx[i]
+  } 
+  TV_92_totales$Lx <- NA # Armemos Lx
+  for (i in 1:(nrow(TV_92_totales) - 1)) {
+    TV_92_totales$Lx[i] <- (TV_92_totales$lx[i] + TV_92_totales$lx[i + 1]) / 2
+  }
+  last_row <- nrow(TV_92_totales) # Truncar los valores w-esimos segun Chiang (1972)
+  TV_92_totales$Lx[last_row] <- TV_92_totales$lx[last_row] / TV_92_totales$Mx[last_row]
+  TV_92_totales$Tx <- NA # Armemos Tx
+  TV_92_totales$Tx[last_row] <- TV_92_totales$Lx[last_row] #se parte del final con el valor terminal de Lx = lx/mx
+  for (i in (last_row - 1):1) { #se itera con lx + Tx+1(edad siguiente)
+    TV_92_totales$Tx[i] <- TV_92_totales$Lx[i] + TV_92_totales$Tx[i + 1]
+  }
+  TV_92_totales$P_x1 <- NA #Armemos P(x,1)
+  TV_92_totales$P_x1[1] <- TV_92_totales$Lx[1] / TV_92_totales$lx[1] #Primer valor como Lx/lx
+  for (i in 2:nrow(TV_92_totales)) { # Valores consecutivos como Tx/T(x-1)
+    TV_92_totales$P_x1[i] <- TV_92_totales$Tx[i] / TV_92_totales$Tx[i - 1]
+  }
+  TV_92_totales <- TV_92_totales %>%
+    mutate(e_0 = ifelse(Tx != 0, Tx / lx )) #se logro armar la tabla, ahora hay que transformarla en funcion.
+    
+  
+  
+  }
