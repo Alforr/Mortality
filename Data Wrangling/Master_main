@@ -498,9 +498,14 @@ rm(anos_f_unique,curso,curso_f_unique,niveles,nivel_f_unique,sexo_f_unique)
   rm(nombres_columnas)
 }
 rm(proporciones_propio)
+  
+  
+  
+  
 # Tablas vida: edad 25 a 100 años. Tomaremos varios caminos: sin promedio de años, promedio de 2 años, promedio de 3 años y promedio de 4 años por genero por tramo y totales.
-# Sin tramos:
-{
+rm(tabla_92_totales)
+# Sin tramos totales totales:
+  {
   # Totales:
   tabla_92_totales <- defs %>%
     filter(Ano_fa == 1992) %>% 
@@ -508,10 +513,33 @@ rm(proporciones_propio)
     summarise(Count = n(), .groups = 'drop') %>% 
     pivot_wider(names_from = tramo_esc, values_from = Count, values_fill = list(Count = 0)) 
   
-  tabla_92_totales <- df_totales_92 %>% #tengamos los valores de muerte y vida juntos
+  tabla_92_totales <- df_hombre_92 %>% #tengamos los valores de muerte y vida juntos
     left_join(tabla_92_totales, by = "Edad") %>%
     replace_na(list(Cantidad = 0)) %>%
     arrange(Edad)
+  tabla_92_totales <- tabla_92_totales %>%
+    select(-"NA",year)
+  tabla_sub_100 <- tabla_92_totales %>%
+    filter(Edad <= 99)
+  tabla_op_99 <- tabla_92_totales %>%
+    filter(Edad > 99)
+  sumar_sobre_99 <- tabla_op_99 %>%
+    summarise(
+      Edad = 99,
+      alta = sum(alta,na.rm = TRUE),
+      media = sum(media, na.rm = TRUE),
+      baja = sum(baja, na.rm = TRUE)
+    )
+  tabla_92_totales <- tabla_sub_100 %>%
+    group_by(Edad) %>%
+    summarise(
+      alta = sum(alta, na.rm = TRUE),
+      baja = sum(baja, na.rm = TRUE),
+      media = sum(media, na.rm = TRUE)
+    ) %>%
+    bind_rows(sumar_sobre_99) %>%
+    arrange(Edad)
+  
   tabla_92_totales <- tabla_92_totales %>% #death rate bajo
     mutate(mx_bajo = ifelse(esc_bajo != 0, baja / esc_bajo, NA))
   tabla_92_totales <- tabla_92_totales %>% #death rate medio
@@ -522,7 +550,41 @@ rm(proporciones_propio)
     mutate(mx_st = ifelse(esc_bajo != 0, (baja+media+alta)/(esc_bajo+esc_medio+esc_alto),NA))
   #Borremos algunas columnas que sobran: NA, year
   tabla_92_totales <- tabla_92_totales %>%
-    select(-year,-"NA")
+    mutate(esc_totales = esc_bajo+esc_medio+esc_alto)
+  tabla_92_totales <- tabla_92_totales %>%
+    mutate(totales = alta+media+baja)
+  tabla_92_totales <- tabla_92_totales %>%
+    mutate(prop_alto = esc_alto/esc_totales)
+  tabla_92_totales <- tabla_92_totales %>%
+    mutate(prop_medio = esc_medio/esc_totales)
+  tabla_92_totales <- tabla_92_totales %>%
+    mutate(prop_bajo = esc_bajo/esc_totales)
+  tabla_92_totales <- tabla_92_totales %>% filter(Edad >= 25 & Edad <= 99 )
+  #Grafiquemos interacciones
+  {
+  plot_esc_alta <- ggplot(tabla_92_totales, aes(x = Edad, y = prop_alto)) +
+    geom_line(color = "blue") +
+    labs(title = "Proporcion escolaridad alta por edad: 1992",
+         x = "Age",
+         y = "Proporcion esc_alta") +
+    theme_minimal()
+  plot_esc_alta
+  plot_esc_media <- ggplot(tabla_92_totales, aes(x = Edad, y = prop_medio)) +
+    geom_line(color = "blue") +
+    labs(title = "Proporcion escolaridad media por edad: 1992",
+         x = "Age",
+         y = "Proporcion esc_media") +
+    theme_minimal()
+  plot_esc_media
+  plot_esc_baja <- ggplot(tabla_92_totales, aes(x = Edad, y = prop_bajo)) +
+    geom_line(color = "blue") +
+    labs(title = "Proporcion escolaridad baja por edad: 1992",
+         x = "Age",
+         y = "Proporcion esc_baja") +
+    theme_minimal()
+  plot_esc_baja
+    }
+  
   rm(TV_92_totales)
   #Vamos sacando lo que necesitamos: armemos tabla de vida cohorte para todos
   TV_92_totales <- data.frame(matrix(nrow = nrow(tabla_92_totales), ncol = 0))
@@ -531,7 +593,8 @@ rm(proporciones_propio)
   TV_92_totales <- TV_92_totales %>% filter(Edad >= 25 & Edad <= 99)
   fn <- 0.5 #Distribucion normal de muertes en el año, simplifica la vida y calculos
   TV_92_totales <- TV_92_totales %>%
-    mutate(qx = ifelse(Mx != 0, Mx / (1+fn*Mx))) #setup probabilidad de muerte en un año
+    mutate(qx = ifelse(Mx != 0, Mx / (1 + fn * Mx), 0)) # Setup probabilidad de muerte en un año
+  TV_92_totales$qx[nrow(TV_92_totales)] <- 1
   TV_92_totales$lx[1] <- 100000
   TV_92_totales$dx[1] <- TV_92_totales$lx[1] * TV_92_totales$qx[1]
   for (i in 2:nrow(TV_92_totales)) { #Armar las columnas de lx  y dx
@@ -556,7 +619,684 @@ rm(proporciones_propio)
   }
   TV_92_totales <- TV_92_totales %>%
     mutate(e_0 = ifelse(Tx != 0, Tx / lx )) #se logro armar la tabla, ahora hay que transformarla en funcion.
-    
   
   
+  #Plotiemos para ver como se comportan las variables: todos
+  plot_tx <- ggplot(TV_92_totales, aes(x = Edad, y = Tx)) +
+    geom_line(color = "blue") +
+    labs(title = "Tx por edad: totales",
+         x = "Age",
+         y = "Tx") +
+    theme_minimal()
+  plot_tx
+  plot_lx <- ggplot(TV_92_totales, aes(x = Edad, y = lx)) +
+    geom_line(color = "blue") +
+    labs(title = "lx por edad: totales",
+         x = "Age",
+         y = "lx") +
+    theme_minimal()
+  plot_lx
+  plot_e_0 <- ggplot(TV_92_totales, aes(x = Edad, y = e_0)) +
+    geom_line(color = "blue") +
+    labs(title = "e(o) por edad: totales",
+         x = "Age",
+         y = "e(0)") +
+    theme_minimal()
+  plot_e_0  
+  # Hay problemas con la tabla en edades superiores, no tiene suavisamiento de ningun tipo
+  
+  # Guardemos las tablas :
+  setwd("C:/Users/Alfonso Orrego/Documents/GitHub/Mortality/Results")
+  write.csv(TV_92_totales, "TV_92_todos.csv", row.names = FALSE)
+  write.csv(tabla_92_totales, "tabla_92_totales.csv", row.names = FALSE)
   }
+# Escolaridad alta:
+  {
+    TV_92_totales_alta <- data.frame(matrix(nrow = nrow(tabla_92_totales), ncol = 0))
+    TV_92_totales_alta$Edad <- tabla_92_totales$Edad
+    TV_92_totales_alta$Mx <- tabla_92_totales$mx_alto
+    TV_92_totales_alta <- TV_92_totales_alta %>% filter(Edad >= 25 & Edad <= 99)
+    fn <- 0.5 #Distribucion normal de muertes en el año, simplifica la vida y calculos
+    TV_92_totales_alta <- TV_92_totales_alta %>%
+      mutate(qx = ifelse(Mx != 0, Mx / (1 + fn * Mx), 0)) # Setup probabilidad de muerte en un año
+    TV_92_totales_alta$qx[nrow(TV_92_totales_alta)] <- 1
+    TV_92_totales_alta$lx[1] <- 100000
+    TV_92_totales_alta$dx[1] <- TV_92_totales_alta$lx[1] * TV_92_totales_alta$qx[1]
+    for (i in 2:nrow(TV_92_totales_alta)) { #Armar las columnas de lx  y dx
+      TV_92_totales_alta$lx[i] <- TV_92_totales_alta$lx[i-1] - TV_92_totales_alta$dx[i-1]
+      TV_92_totales_alta$dx[i] <- TV_92_totales_alta$lx[i] * TV_92_totales_alta$qx[i]
+    } 
+    TV_92_totales_alta$Lx <- NA # Armemos Lx
+    for (i in 1:(nrow(TV_92_totales_alta) - 1)) {
+      TV_92_totales_alta$Lx[i] <- (TV_92_totales_alta$lx[i] + TV_92_totales_alta$lx[i + 1]) / 2
+    }
+    last_row <- nrow(TV_92_totales_alta) # Truncar los valores w-esimos segun Chiang (1972)
+    TV_92_totales_alta$Lx[last_row] <- TV_92_totales_alta$lx[last_row] / TV_92_totales_alta$Mx[last_row]
+    TV_92_totales_alta$Tx <- NA # Armemos Tx
+    TV_92_totales_alta$Tx[last_row] <- TV_92_totales_alta$Lx[last_row] #se parte del final con el valor terminal de Lx = lx/mx
+    for (i in (last_row - 1):1) { #se itera con lx + Tx+1(edad siguiente)
+      TV_92_totales_alta$Tx[i] <- TV_92_totales_alta$Lx[i] + TV_92_totales_alta$Tx[i + 1]
+    }
+    TV_92_totales_alta$P_x1 <- NA #Armemos P(x,1)
+    TV_92_totales_alta$P_x1[1] <- TV_92_totales_alta$Lx[1] / TV_92_totales_alta$lx[1] #Primer valor como Lx/lx
+    for (i in 2:nrow(TV_92_totales_alta)) { # Valores consecutivos como Tx/T(x-1)
+      TV_92_totales_alta$P_x1[i] <- TV_92_totales_alta$Tx[i] / TV_92_totales_alta$Tx[i - 1]
+    }
+    TV_92_totales_alta <- TV_92_totales_alta %>%
+      mutate(e_0 = ifelse(Tx != 0, Tx / lx )) #se logro armar la tabla, ahora hay que transformarla en funcion.
+    
+    
+    #Plotiemos para ver como se comportan las variables: todos
+    plot_qx <- ggplot(TV_92_totales_alta, aes(x = Edad, y = qx)) +
+      geom_line(color = "blue") +
+      labs(title = "qx por edad: totales esc_alta",
+           x = "Age",
+           y = "Tx") +
+      theme_minimal()
+    plot_qx
+    plot_lx <- ggplot(TV_92_totales_alta, aes(x = Edad, y = lx)) +
+      geom_line(color = "blue") +
+      labs(title = "lx por edad: totales esc_alta",
+           x = "Age",
+           y = "lx") +
+      theme_minimal()
+    plot_lx
+    plot_e_0 <- ggplot(TV_92_totales_alta, aes(x = Edad, y = e_0)) +
+      geom_line(color = "blue") +
+      labs(title = "e(o) por edad: totales esc_alta",
+           x = "Age",
+           y = "e(0)") +
+      theme_minimal()
+    plot_e_0
+    # Guardemos las tablas y graficos :
+    setwd("C:/Users/Alfonso Orrego/Documents/GitHub/Mortality/Results")
+    write.csv(TV_92_totales_alta, "TV_92_totales_alta.csv", row.names = FALSE)
+    ggsave("lx_totales_92_alta.png", plot = plot_lx, width = 8, height = 6)
+    ggsave("qx_totales_92_alta.png", plot = plot_qx, width = 8, height = 6)
+    #ggsave("tx_totales_92_alta.png", plot = tx, width = 8, height = 6)
+    ggsave("e0x_totales_92_alta.png", plot = plot_e_0, width = 8, height = 6)
+  }
+# Escolaridad media:
+  {
+    TV_92_totales_media <- data.frame(matrix(nrow = nrow(tabla_92_totales), ncol = 0))
+    TV_92_totales_media$Edad <- tabla_92_totales$Edad
+    TV_92_totales_media$Mx <- tabla_92_totales$mx_medio
+    TV_92_totales_media <- TV_92_totales_media %>% filter(Edad >= 25 & Edad <= 99)
+    fn <- 0.5 #Distribucion normal de muertes en el año, simplifica la vida y calculos
+    TV_92_totales_media <- TV_92_totales_media %>%
+      mutate(qx = ifelse(Mx != 0, Mx / (1 + fn * Mx), 0)) # Setup probabilidad de muerte en un año
+    TV_92_totales_media$qx[nrow(TV_92_totales_media)] <- 1
+    TV_92_totales_media$lx[1] <- 100000
+    TV_92_totales_media$dx[1] <- TV_92_totales_media$lx[1] * TV_92_totales_media$qx[1]
+    for (i in 2:nrow(TV_92_totales_media)) { #Armar las columnas de lx  y dx
+      TV_92_totales_media$lx[i] <- TV_92_totales_media$lx[i-1] - TV_92_totales_media$dx[i-1]
+      TV_92_totales_media$dx[i] <- TV_92_totales_media$lx[i] * TV_92_totales_media$qx[i]
+    } 
+    TV_92_totales_media$Lx <- NA # Armemos Lx
+    for (i in 1:(nrow(TV_92_totales_media) - 1)) {
+      TV_92_totales_media$Lx[i] <- (TV_92_totales_media$lx[i] + TV_92_totales_media$lx[i + 1]) / 2
+    }
+    last_row <- nrow(TV_92_totales_media) # Truncar los valores w-esimos segun Chiang (1972)
+    TV_92_totales_media$Lx[last_row] <- TV_92_totales_media$lx[last_row] / TV_92_totales_media$Mx[last_row]
+    TV_92_totales_media$Tx <- NA # Armemos Tx
+    TV_92_totales_media$Tx[last_row] <- TV_92_totales_media$Lx[last_row] #se parte del final con el valor terminal de Lx = lx/mx
+    for (i in (last_row - 1):1) { #se itera con lx + Tx+1(edad siguiente)
+      TV_92_totales_media$Tx[i] <- TV_92_totales_media$Lx[i] + TV_92_totales_media$Tx[i + 1]
+    }
+    TV_92_totales_media$P_x1 <- NA #Armemos P(x,1)
+    TV_92_totales_media$P_x1[1] <- TV_92_totales_media$Lx[1] / TV_92_totales_media$lx[1] #Primer valor como Lx/lx
+    for (i in 2:nrow(TV_92_totales_media)) { # Valores consecutivos como Tx/T(x-1)
+      TV_92_totales_media$P_x1[i] <- TV_92_totales_media$Tx[i] / TV_92_totales_media$Tx[i - 1]
+    }
+    TV_92_totales_media <- TV_92_totales_media %>%
+      mutate(e_0 = ifelse(Tx != 0, Tx / lx )) #se logro armar la tabla, ahora hay que transformarla en funcion.
+    
+    
+    #Plotiemos para ver como se comportan las variables: todos
+    plot_qx <- ggplot(TV_92_totales_media, aes(x = Edad, y = qx)) +
+      geom_line(color = "blue") +
+      labs(title = "qx por edad: totales esc_media",
+           x = "Age",
+           y = "Tx") +
+      theme_minimal()
+    plot_qx
+    plot_lx <- ggplot(TV_92_totales_media, aes(x = Edad, y = lx)) +
+      geom_line(color = "blue") +
+      labs(title = "lx por edad: totales esc_media",
+           x = "Age",
+           y = "lx") +
+      theme_minimal()
+    plot_lx
+    plot_e_0 <- ggplot(TV_92_totales_media, aes(x = Edad, y = e_0)) +
+      geom_line(color = "blue") +
+      labs(title = "e(o) por edad: totales esc_media",
+           x = "Age",
+           y = "e(0)") +
+      theme_minimal()
+    plot_e_0
+    # Guardemos las tablas y graficos :
+    setwd("C:/Users/Alfonso Orrego/Documents/GitHub/Mortality/Results")
+    write.csv(TV_92_totales_media, "TV_92_totales_media.csv", row.names = FALSE)
+    ggsave("lx_totales_92_media.png", plot = plot_lx, width = 8, height = 6)
+    ggsave("qx_totales_92_media.png", plot = plot_qx, width = 8, height = 6)
+    #ggsave("tx_totales_92_media.png", plot = tx, width = 8, height = 6)
+    ggsave("e0x_totales_92_media.png", plot = plot_e_0, width = 8, height = 6)
+  }
+# Escolaridad baja  
+  {
+    TV_92_totales_baja <- data.frame(matrix(nrow = nrow(tabla_92_totales), ncol = 0))
+    TV_92_totales_baja$Edad <- tabla_92_totales$Edad
+    TV_92_totales_baja$Mx <- tabla_92_totales$mx_bajo
+    TV_92_totales_baja <- TV_92_totales_baja %>% filter(Edad >= 25 & Edad <= 99)
+    fn <- 0.5 #Distribucion normal de muertes en el año, simplifica la vida y calculos
+    TV_92_totales_baja <- TV_92_totales_baja %>%
+      mutate(qx = ifelse(Mx != 0, Mx / (1 + fn * Mx), 0)) # Setup probabilidad de muerte en un año
+    TV_92_totales_baja$qx[nrow(TV_92_totales_baja)] <- 1
+    TV_92_totales_baja$lx[1] <- 100000
+    TV_92_totales_baja$dx[1] <- TV_92_totales_baja$lx[1] * TV_92_totales_baja$qx[1]
+    for (i in 2:nrow(TV_92_totales_baja)) { #Armar las columnas de lx  y dx
+      TV_92_totales_baja$lx[i] <- TV_92_totales_baja$lx[i-1] - TV_92_totales_baja$dx[i-1]
+      TV_92_totales_baja$dx[i] <- TV_92_totales_baja$lx[i] * TV_92_totales_baja$qx[i]
+    } 
+    TV_92_totales_baja$Lx <- NA # Armemos Lx
+    for (i in 1:(nrow(TV_92_totales_baja) - 1)) {
+      TV_92_totales_baja$Lx[i] <- (TV_92_totales_baja$lx[i] + TV_92_totales_baja$lx[i + 1]) / 2
+    }
+    last_row <- nrow(TV_92_totales_baja) # Truncar los valores w-esimos segun Chiang (1972)
+    TV_92_totales_baja$Lx[last_row] <- TV_92_totales_baja$lx[last_row] / TV_92_totales_baja$Mx[last_row]
+    TV_92_totales_baja$Tx <- NA # Armemos Tx
+    TV_92_totales_baja$Tx[last_row] <- TV_92_totales_baja$Lx[last_row] #se parte del final con el valor terminal de Lx = lx/mx
+    for (i in (last_row - 1):1) { #se itera con lx + Tx+1(edad siguiente)
+      TV_92_totales_baja$Tx[i] <- TV_92_totales_baja$Lx[i] + TV_92_totales_baja$Tx[i + 1]
+    }
+    TV_92_totales_baja$P_x1 <- NA #Armemos P(x,1)
+    TV_92_totales_baja$P_x1[1] <- TV_92_totales_baja$Lx[1] / TV_92_totales_baja$lx[1] #Primer valor como Lx/lx
+    for (i in 2:nrow(TV_92_totales_baja)) { # Valores consecutivos como Tx/T(x-1)
+      TV_92_totales_baja$P_x1[i] <- TV_92_totales_baja$Tx[i] / TV_92_totales_baja$Tx[i - 1]
+    }
+    TV_92_totales_baja <- TV_92_totales_baja %>%
+      mutate(e_0 = ifelse(Tx != 0, Tx / lx )) #se logro armar la tabla, ahora hay que transformarla en funcion.
+    
+    
+    #Plotiemos para ver como se comportan las variables: todos
+    plot_qx <- ggplot(TV_92_totales_baja, aes(x = Edad, y = qx)) +
+      geom_line(color = "blue") +
+      labs(title = "qx por edad: totales esc_baja",
+           x = "Age",
+           y = "Tx") +
+      theme_minimal()
+    plot_qx
+    plot_lx <- ggplot(TV_92_totales_baja, aes(x = Edad, y = lx)) +
+      geom_line(color = "blue") +
+      labs(title = "lx por edad: totales esc_baja",
+           x = "Age",
+           y = "lx") +
+      theme_minimal()
+    plot_lx
+    plot_e_0 <- ggplot(TV_92_totales_baja, aes(x = Edad, y = e_0)) +
+      geom_line(color = "blue") +
+      labs(title = "e(o) por edad: totales esc_baja",
+           x = "Age",
+           y = "e(0)") +
+      theme_minimal()
+    plot_e_0
+    # Guardemos las tablas y graficos :
+    setwd("C:/Users/Alfonso Orrego/Documents/GitHub/Mortality/Results")
+    write.csv(TV_92_totales_baja, "TV_92_totales_baja.csv", row.names = FALSE)
+    ggsave("lx_totales_92_baja.png", plot = plot_lx, width = 8, height = 6)
+    ggsave("qx_totales_92_baja.png", plot = plot_qx, width = 8, height = 6)
+    #ggsave("tx_totales_92_baja.png", plot = tx, width = 8, height = 6)
+    ggsave("e0x_totales_92_baja.png", plot = plot_e_0, width = 8, height = 6)
+  }
+# Mis en place
+rm(tabla_op_99,tabla_sub_100,proporciones_propio,plot_e_0,plot_esc_alta,plot_esc_baja,plot_esc_media,plot_lx,plot_qx,plot_tx,sumar_sobre_99)
+rm(sumar_sobre_99)
+  # Guardemos las tablas :
+  setwd("C:/Users/Alfonso Orrego/Documents/GitHub/Mortality/Results")
+  write.csv(TV_92_totales_alta, "TV_92_totales_alta.csv", row.names = FALSE)
+  write.csv(TV_92_totales_baja, "TV_92_totales_baja.csv", row.names = FALSE)
+  write.csv(TV_92_totales_media, "TV_92_totales_media.csv", row.names = FALSE)
+  
+# Tabla hombre/mujer ahora
+{
+  tabla_92_hombre <- defs %>%
+    filter(Ano_fa == 1992, Sexo == 1) %>% 
+    group_by(Edad, tramo_esc) %>% # homme
+    summarise(Count = n(), .groups = 'drop') %>% 
+    pivot_wider(names_from = tramo_esc, values_from = Count, values_fill = list(Count = 0)) 
+  tabla_92_mujer <- defs %>%
+    filter(Ano_fa == 1992, Sexo == 2) %>% 
+    group_by(Edad, tramo_esc) %>% # mulher
+    summarise(Count = n(), .groups = 'drop') %>% 
+    pivot_wider(names_from = tramo_esc, values_from = Count, values_fill = list(Count = 0)) 
+  #Partamos por hombre:
+  {
+    #rm(tabla_92_hombre)
+    tabla_sub_100 <- tabla_92_hombre %>%
+      filter(Edad <= 99)
+    tabla_op_99 <- tabla_92_hombre %>%
+      filter(Edad > 99)
+    sumar_sobre_99 <- tabla_op_99 %>%
+      summarise(
+        Edad = 99,
+        alta = sum(alta,na.rm = TRUE),
+        media = sum(media, na.rm = TRUE),
+        baja = sum(baja, na.rm = TRUE)
+      )
+    tabla_92_hombre <- tabla_sub_100 %>%
+      group_by(Edad) %>%
+      summarise(
+        alta = sum(alta, na.rm = TRUE),
+        baja = sum(baja, na.rm = TRUE),
+        media = sum(media, na.rm = TRUE)
+      ) %>%
+      bind_rows(sumar_sobre_99) %>%
+      arrange(Edad)
+    tabla_92_hombre <- df_hombre_92 %>% #tengamos los valores de muerte y vida juntos
+      left_join(tabla_92_hombre, by = "Edad") %>%
+      replace_na(list(Cantidad = 0)) %>%
+      arrange(Edad)
+    tabla_92_hombre <- tabla_92_hombre %>%
+      select(-year)
+    tabla_92_hombre <- tabla_92_hombre %>% #death rate bajo
+      mutate(mx_bajo = ifelse(esc_bajo != 0, baja / esc_bajo, NA))
+    tabla_92_hombre <- tabla_92_hombre %>% #death rate medio
+      mutate(mx_medio = ifelse(esc_medio != 0, media / esc_medio, NA))
+    tabla_92_hombre <- tabla_92_hombre %>% #death rate alto
+      mutate(mx_alto = ifelse(esc_alto != 0, alta / esc_alto, NA))
+    tabla_92_hombre <- tabla_92_hombre %>% #death rate central de todos
+      mutate(mx_st = ifelse(esc_bajo != 0, (baja+media+alta)/(esc_bajo+esc_medio+esc_alto),NA))
+    #Borremos algunas columnas que sobran: NA, year
+    tabla_92_hombre <- tabla_92_hombre %>%
+      mutate(esc_totales = esc_bajo+esc_medio+esc_alto)
+    tabla_92_hombre <- tabla_92_hombre %>%
+      mutate(totales = alta+media+baja)
+    tabla_92_hombre <- tabla_92_hombre %>%
+      mutate(prop_alto = esc_alto/esc_totales)
+    tabla_92_hombre <- tabla_92_hombre %>%
+      mutate(prop_medio = esc_medio/esc_totales)
+    tabla_92_hombre <- tabla_92_hombre %>%
+      mutate(prop_bajo = esc_bajo/esc_totales)
+    tabla_92_hombre <- tabla_92_hombre %>% filter(Edad >= 25 & Edad <= 99 )
+    tabla_92_hombre <- tabla_92_hombre %>%
+      slice(1:(n() - 1))
+    }
+    
+  #Grafiquemos interacciones
+  {
+    plot_esc_alta <- ggplot(tabla_92_hombre, aes(x = Edad, y = prop_alto)) +
+      geom_line(color = "blue") +
+      labs(title = "Proporcion escolaridad alta por edad: 1992 (hombres)",
+           x = "Age",
+           y = "Proporcion esc_alta") +
+      theme_minimal()
+    plot_esc_alta
+    plot_esc_media <- ggplot(tabla_92_hombre, aes(x = Edad, y = prop_medio)) +
+      geom_line(color = "blue") +
+      labs(title = "Proporcion escolaridad media por edad: 1992 (hombres)",
+           x = "Age",
+           y = "Proporcion esc_media") +
+      theme_minimal()
+    plot_esc_media
+    plot_esc_baja <- ggplot(tabla_92_hombre, aes(x = Edad, y = prop_bajo)) +
+      geom_line(color = "blue") +
+      labs(title = "Proporcion escolaridad baja por edad: 1992 (hombres)",
+           x = "Age",
+           y = "Proporcion esc_baja") +
+      theme_minimal()
+    plot_esc_baja
+  }
+  # Armemos la TV: central primero
+  {
+    TV_92_H_t <- data.frame(matrix(nrow = nrow(tabla_92_hombre), ncol = 0))
+    TV_92_H_t$Edad <- tabla_92_hombre$Edad
+    TV_92_H_t$Mx <- tabla_92_hombre$mx_st
+    TV_92_H_t <- TV_92_H_t %>% filter(Edad >= 25 & Edad <= 99)
+    fn <- 0.5 #Distribucion normal de muertes en el año, simplifica la vida y calculos
+    TV_92_H_t <- TV_92_H_t %>%
+      mutate(qx = ifelse(Mx != 0, Mx / (1 + fn * Mx), 0)) # Setup probabilidad de muerte en un año
+    TV_92_H_t$qx[nrow(TV_92_H_t)] <- 1
+    TV_92_H_t$lx[1] <- 100000
+    TV_92_H_t$dx[1] <- TV_92_H_t$lx[1] * TV_92_H_t$qx[1]
+    for (i in 2:nrow(TV_92_H_t)) { #Armar las columnas de lx  y dx
+      TV_92_H_t$lx[i] <- TV_92_H_t$lx[i-1] - TV_92_H_t$dx[i-1]
+      TV_92_H_t$dx[i] <- TV_92_H_t$lx[i] * TV_92_H_t$qx[i]
+    } 
+    TV_92_H_t$Lx <- NA # Armemos Lx
+    for (i in 1:(nrow(TV_92_H_t) - 1)) {
+      TV_92_H_t$Lx[i] <- (TV_92_H_t$lx[i] + TV_92_H_t$lx[i + 1]) / 2
+    }
+    last_row <- nrow(TV_92_H_t) # Truncar los valores w-esimos segun Chiang (1972)
+    TV_92_H_t$Lx[last_row] <- TV_92_H_t$lx[last_row] / TV_92_H_t$Mx[last_row]
+    TV_92_H_t$Tx <- NA # Armemos Tx
+    TV_92_H_t$Tx[last_row] <- TV_92_H_t$Lx[last_row] #se parte del final con el valor terminal de Lx = lx/mx
+    for (i in (last_row - 1):1) { #se itera con lx + Tx+1(edad siguiente)
+      TV_92_H_t$Tx[i] <- TV_92_H_t$Lx[i] + TV_92_H_t$Tx[i + 1]
+    }
+    TV_92_H_t$P_x1 <- NA #Armemos P(x,1)
+    TV_92_H_t$P_x1[1] <- TV_92_H_t$Lx[1] / TV_92_H_t$lx[1] #Primer valor como Lx/lx
+    for (i in 2:nrow(TV_92_H_t)) { # Valores consecutivos como Tx/T(x-1)
+      TV_92_H_t$P_x1[i] <- TV_92_H_t$Tx[i] / TV_92_H_t$Tx[i - 1]
+    }
+    TV_92_H_t <- TV_92_H_t %>%
+      mutate(e_0 = ifelse(Tx != 0, Tx / lx )) #se logro armar la tabla, ahora hay que transformarla en funcion.
+    
+  }
+  # Baja
+  {
+    TV_92_H_b <- data.frame(matrix(nrow = nrow(tabla_92_hombre), ncol = 0))
+    TV_92_H_b$Edad <- tabla_92_hombre$Edad
+    TV_92_H_b$Mx <- tabla_92_hombre$mx_bajo
+    TV_92_H_b <- TV_92_H_b %>% filter(Edad >= 25 & Edad <= 99)
+    fn <- 0.5 #Distribucion normal de muertes en el año, simplifica la vida y calculos
+    TV_92_H_b <- TV_92_H_b %>%
+      mutate(qx = ifelse(Mx != 0, Mx / (1 + fn * Mx), 0)) # Setup probabilidad de muerte en un año
+    TV_92_H_b$qx[nrow(TV_92_H_b)] <- 1
+    TV_92_H_b$lx[1] <- 100000
+    TV_92_H_b$dx[1] <- TV_92_H_b$lx[1] * TV_92_H_b$qx[1]
+    for (i in 2:nrow(TV_92_H_b)) { #Armar las columnas de lx  y dx
+      TV_92_H_b$lx[i] <- TV_92_H_b$lx[i-1] - TV_92_H_b$dx[i-1]
+      TV_92_H_b$dx[i] <- TV_92_H_b$lx[i] * TV_92_H_b$qx[i]
+    } 
+    TV_92_H_b$Lx <- NA # Armemos Lx
+    for (i in 1:(nrow(TV_92_H_b) - 1)) {
+      TV_92_H_b$Lx[i] <- (TV_92_H_b$lx[i] + TV_92_H_b$lx[i + 1]) / 2
+    }
+    last_row <- nrow(TV_92_H_b) # Truncar los valores w-esimos segun Chiang (1972)
+    TV_92_H_b$Lx[last_row] <- TV_92_H_b$lx[last_row] / TV_92_H_b$Mx[last_row]
+    TV_92_H_b$Tx <- NA # Armemos Tx
+    TV_92_H_b$Tx[last_row] <- TV_92_H_b$Lx[last_row] #se parte del final con el valor terminal de Lx = lx/mx
+    for (i in (last_row - 1):1) { #se itera con lx + Tx+1(edad siguiente)
+      TV_92_H_b$Tx[i] <- TV_92_H_b$Lx[i] + TV_92_H_b$Tx[i + 1]
+    }
+    TV_92_H_b$P_x1 <- NA #Armemos P(x,1)
+    TV_92_H_b$P_x1[1] <- TV_92_H_b$Lx[1] / TV_92_H_b$lx[1] #Primer valor como Lx/lx
+    for (i in 2:nrow(TV_92_H_b)) { # Valores consecutivos como Tx/T(x-1)
+      TV_92_H_b$P_x1[i] <- TV_92_H_b$Tx[i] / TV_92_H_b$Tx[i - 1]
+    }
+    TV_92_H_b <- TV_92_H_b %>%
+      mutate(e_0 = ifelse(Tx != 0, Tx / lx )) #se logro armar la tabla, ahora hay que transformarla en funcion.
+  }
+  # Media, por no suavizar e(0) de media > e(0) de alta
+  {
+    TV_92_H_m <- data.frame(matrix(nrow = nrow(tabla_92_hombre), ncol = 0))
+    TV_92_H_m$Edad <- tabla_92_hombre$Edad
+    TV_92_H_m$Mx <- tabla_92_hombre$mx_medio
+    TV_92_H_m <- TV_92_H_m %>% filter(Edad >= 25 & Edad <= 99)
+    fn <- 0.5 #Distribucion normal de muertes en el año, simplifica la vida y calculos
+    TV_92_H_m <- TV_92_H_m %>%
+      mutate(qx = ifelse(Mx != 0, Mx / (1 + fn * Mx), 0)) # Setup probabilidad de muerte en un año
+    TV_92_H_m$qx[nrow(TV_92_H_m)] <- 1
+    TV_92_H_m$lx[1] <- 100000
+    TV_92_H_m$dx[1] <- TV_92_H_m$lx[1] * TV_92_H_m$qx[1]
+    for (i in 2:nrow(TV_92_H_m)) { #Armar las columnas de lx  y dx
+      TV_92_H_m$lx[i] <- TV_92_H_m$lx[i-1] - TV_92_H_m$dx[i-1]
+      TV_92_H_m$dx[i] <- TV_92_H_m$lx[i] * TV_92_H_m$qx[i]
+    } 
+    TV_92_H_m$Lx <- NA # Armemos Lx
+    for (i in 1:(nrow(TV_92_H_m) - 1)) {
+      TV_92_H_m$Lx[i] <- (TV_92_H_m$lx[i] + TV_92_H_m$lx[i + 1]) / 2
+    }
+    last_row <- nrow(TV_92_H_m) # Truncar los valores w-esimos segun Chiang (1972)
+    TV_92_H_m$Lx[last_row] <- TV_92_H_m$lx[last_row] / TV_92_H_m$Mx[last_row]
+    TV_92_H_m$Tx <- NA # Armemos Tx
+    TV_92_H_m$Tx[last_row] <- TV_92_H_m$Lx[last_row] #se parte del final con el valor terminal de Lx = lx/mx
+    for (i in (last_row - 1):1) { #se itera con lx + Tx+1(edad siguiente)
+      TV_92_H_m$Tx[i] <- TV_92_H_m$Lx[i] + TV_92_H_m$Tx[i + 1]
+    }
+    TV_92_H_m$P_x1 <- NA #Armemos P(x,1)
+    TV_92_H_m$P_x1[1] <- TV_92_H_m$Lx[1] / TV_92_H_m$lx[1] #Primer valor como Lx/lx
+    for (i in 2:nrow(TV_92_H_m)) { # Valores consecutivos como Tx/T(x-1)
+      TV_92_H_m$P_x1[i] <- TV_92_H_m$Tx[i] / TV_92_H_m$Tx[i - 1]
+    }
+    TV_92_H_m <- TV_92_H_m %>%
+      mutate(e_0 = ifelse(Tx != 0, Tx / lx )) #se logro armar la tabla, ahora hay que transformarla en funcion.
+  }
+  # Alta
+  {
+    TV_92_H_a <- data.frame(matrix(nrow = nrow(tabla_92_hombre), ncol = 0))
+    TV_92_H_a$Edad <- tabla_92_hombre$Edad
+    TV_92_H_a$Mx <- tabla_92_hombre$mx_alto
+    TV_92_H_a <- TV_92_H_a %>% filter(Edad >= 25 & Edad <= 99)
+    fn <- 0.5 #Distribucion normal de muertes en el año, simplifica la vida y calculos
+    TV_92_H_a <- TV_92_H_a %>%
+      mutate(qx = ifelse(Mx != 0, Mx / (1 + fn * Mx), 0)) # Setup probabilidad de muerte en un año
+    TV_92_H_a$qx[nrow(TV_92_H_a)] <- 1
+    TV_92_H_a$lx[1] <- 100000
+    TV_92_H_a$dx[1] <- TV_92_H_a$lx[1] * TV_92_H_a$qx[1]
+    for (i in 2:nrow(TV_92_H_a)) { #Armar las columnas de lx  y dx
+      TV_92_H_a$lx[i] <- TV_92_H_a$lx[i-1] - TV_92_H_a$dx[i-1]
+      TV_92_H_a$dx[i] <- TV_92_H_a$lx[i] * TV_92_H_a$qx[i]
+    } 
+    TV_92_H_a$Lx <- NA # Armemos Lx
+    for (i in 1:(nrow(TV_92_H_a) - 1)) {
+      TV_92_H_a$Lx[i] <- (TV_92_H_a$lx[i] + TV_92_H_a$lx[i + 1]) / 2
+    }
+    last_row <- nrow(TV_92_H_a) # Truncar los valores w-esimos segun Chiang (1972)
+    TV_92_H_a$Lx[last_row] <- TV_92_H_a$lx[last_row] / TV_92_H_a$Mx[last_row]
+    TV_92_H_a$Tx <- NA # Armemos Tx
+    TV_92_H_a$Tx[last_row] <- TV_92_H_a$Lx[last_row] #se parte del final con el valor terminal de Lx = lx/mx
+    for (i in (last_row - 1):1) { #se itera con lx + Tx+1(edad siguiente)
+      TV_92_H_a$Tx[i] <- TV_92_H_a$Lx[i] + TV_92_H_a$Tx[i + 1]
+    }
+    TV_92_H_a$P_x1 <- NA #Armemos P(x,1)
+    TV_92_H_a$P_x1[1] <- TV_92_H_a$Lx[1] / TV_92_H_a$lx[1] #Primer valor como Lx/lx
+    for (i in 2:nrow(TV_92_H_a)) { # Valores consecutivos como Tx/T(x-1)
+      TV_92_H_a$P_x1[i] <- TV_92_H_a$Tx[i] / TV_92_H_a$Tx[i - 1]
+    }
+    TV_92_H_a <- TV_92_H_a %>%
+      mutate(e_0 = ifelse(Tx != 0, Tx / lx )) #se logro armar la tabla, ahora hay que transformarla en funcion.
+  }
+  # Guardemos las tablas :
+  # Guardemos las tablas 
+  setwd("C:/Users/Alfonso Orrego/Documents/GitHub/Mortality/Results")
+  write.csv(TV_92_H_b, "TV_92_H_b.csv", row.names = FALSE)
+  write.csv(TV_92_H_m, "TV_92_H_m.csv", row.names = FALSE)
+  write.csv(TV_92_H_a, "TV_92_H_a.csv", row.names = FALSE)
+  write.csv(TV_92_H_t, "TV_92_H_t.csv", row.names = FALSE)
+  #Ahora las mujeres:
+  {
+    {
+      #rm(tabla_92_hombre)
+      tabla_sub_100 <- tabla_92_mujer %>%
+        filter(Edad <= 99)
+      tabla_op_99 <- tabla_92_mujer %>%
+        filter(Edad > 99)
+      sumar_sobre_99 <- tabla_op_99 %>%
+        summarise(
+          Edad = 99,
+          alta = sum(alta,na.rm = TRUE),
+          media = sum(media, na.rm = TRUE),
+          baja = sum(baja, na.rm = TRUE)
+        )
+      tabla_92_mujer <- tabla_sub_100 %>%
+        group_by(Edad) %>%
+        summarise(
+          alta = sum(alta, na.rm = TRUE),
+          baja = sum(baja, na.rm = TRUE),
+          media = sum(media, na.rm = TRUE)
+        ) %>%
+        bind_rows(sumar_sobre_99) %>%
+        arrange(Edad)
+      tabla_92_mujer <- df_hombre_92 %>% #tengamos los valores de muerte y vida juntos
+        left_join(tabla_92_mujer, by = "Edad") %>%
+        replace_na(list(Cantidad = 0)) %>%
+        arrange(Edad)
+      tabla_92_mujer <- tabla_92_mujer %>%
+        select(-year)
+      tabla_92_mujer <- tabla_92_mujer %>% #death rate bajo
+        mutate(mx_bajo = ifelse(esc_bajo != 0, baja / esc_bajo, NA))
+      tabla_92_mujer <- tabla_92_mujer %>% #death rate medio
+        mutate(mx_medio = ifelse(esc_medio != 0, media / esc_medio, NA))
+      tabla_92_mujer <- tabla_92_mujer %>% #death rate alto
+        mutate(mx_alto = ifelse(esc_alto != 0, alta / esc_alto, NA))
+      tabla_92_mujer <- tabla_92_mujer %>% #death rate central de todos
+        mutate(mx_st = ifelse(esc_bajo != 0, (baja+media+alta)/(esc_bajo+esc_medio+esc_alto),NA))
+      #Borremos algunas columnas que sobran: NA, year
+      tabla_92_mujer <- tabla_92_mujer %>%
+        mutate(esc_totales = esc_bajo+esc_medio+esc_alto)
+      tabla_92_mujer <- tabla_92_mujer %>%
+        mutate(totales = alta+media+baja)
+      tabla_92_mujer <- tabla_92_mujer %>%
+        mutate(prop_alto = esc_alto/esc_totales)
+      tabla_92_mujer <- tabla_92_mujer %>%
+        mutate(prop_medio = esc_medio/esc_totales)
+      tabla_92_mujer <- tabla_92_mujer %>%
+        mutate(prop_bajo = esc_bajo/esc_totales)
+      tabla_92_mujer <- tabla_92_mujer %>% filter(Edad >= 25 & Edad <= 99 )
+      tabla_92_mujer <- tabla_92_mujer %>%
+        slice(1:(n() - 1))
+    }
+    # Ahora por las TV: central, y por tramos.
+    # Central
+    {
+      TV_92_M_t <- data.frame(matrix(nrow = nrow(tabla_92_hombre), ncol = 0))
+      TV_92_M_t$Edad <- tabla_92_hombre$Edad
+      TV_92_M_t$Mx <- tabla_92_hombre$mx_st
+      TV_92_M_t <- TV_92_M_t %>% filter(Edad >= 25 & Edad <= 99)
+      fn <- 0.5 #Distribucion normal de muertes en el año, simplifica la vida y calculos
+      TV_92_M_t <- TV_92_M_t %>%
+        mutate(qx = ifelse(Mx != 0, Mx / (1 + fn * Mx), 0)) # Setup probabilidad de muerte en un año
+      TV_92_M_t$qx[nrow(TV_92_M_t)] <- 1
+      TV_92_M_t$lx[1] <- 100000
+      TV_92_M_t$dx[1] <- TV_92_M_t$lx[1] * TV_92_M_t$qx[1]
+      for (i in 2:nrow(TV_92_M_t)) { #Armar las columnas de lx  y dx
+        TV_92_M_t$lx[i] <- TV_92_M_t$lx[i-1] - TV_92_M_t$dx[i-1]
+        TV_92_M_t$dx[i] <- TV_92_M_t$lx[i] * TV_92_M_t$qx[i]
+      } 
+      TV_92_M_t$Lx <- NA # Armemos Lx
+      for (i in 1:(nrow(TV_92_M_t) - 1)) {
+        TV_92_M_t$Lx[i] <- (TV_92_M_t$lx[i] + TV_92_M_t$lx[i + 1]) / 2
+      }
+      last_row <- nrow(TV_92_M_t) # Truncar los valores w-esimos segun Chiang (1972)
+      TV_92_M_t$Lx[last_row] <- TV_92_M_t$lx[last_row] / TV_92_M_t$Mx[last_row]
+      TV_92_M_t$Tx <- NA # Armemos Tx
+      TV_92_M_t$Tx[last_row] <- TV_92_M_t$Lx[last_row] #se parte del final con el valor terminal de Lx = lx/mx
+      for (i in (last_row - 1):1) { #se itera con lx + Tx+1(edad siguiente)
+        TV_92_M_t$Tx[i] <- TV_92_M_t$Lx[i] + TV_92_M_t$Tx[i + 1]
+      }
+      TV_92_M_t$P_x1 <- NA #Armemos P(x,1)
+      TV_92_M_t$P_x1[1] <- TV_92_M_t$Lx[1] / TV_92_M_t$lx[1] #Primer valor como Lx/lx
+      for (i in 2:nrow(TV_92_M_t)) { # Valores consecutivos como Tx/T(x-1)
+        TV_92_M_t$P_x1[i] <- TV_92_M_t$Tx[i] / TV_92_M_t$Tx[i - 1]
+      }
+      TV_92_M_t <- TV_92_M_t %>%
+        mutate(e_0 = ifelse(Tx != 0, Tx / lx )) #se logro armar la tabla, ahora hay que transformarla en funcion.
+      
+    }
+    # Baja
+    {
+      TV_92_M_b <- data.frame(matrix(nrow = nrow(tabla_92_hombre), ncol = 0))
+      TV_92_M_b$Edad <- tabla_92_hombre$Edad
+      TV_92_M_b$Mx <- tabla_92_hombre$mx_bajo
+      TV_92_M_b <- TV_92_M_b %>% filter(Edad >= 25 & Edad <= 99)
+      fn <- 0.5 #Distribucion normal de muertes en el año, simplifica la vida y calculos
+      TV_92_M_b <- TV_92_M_b %>%
+        mutate(qx = ifelse(Mx != 0, Mx / (1 + fn * Mx), 0)) # Setup probabilidad de muerte en un año
+      TV_92_M_b$qx[nrow(TV_92_M_b)] <- 1
+      TV_92_M_b$lx[1] <- 100000
+      TV_92_M_b$dx[1] <- TV_92_M_b$lx[1] * TV_92_M_b$qx[1]
+      for (i in 2:nrow(TV_92_M_b)) { #Armar las columnas de lx  y dx
+        TV_92_M_b$lx[i] <- TV_92_M_b$lx[i-1] - TV_92_M_b$dx[i-1]
+        TV_92_M_b$dx[i] <- TV_92_M_b$lx[i] * TV_92_M_b$qx[i]
+      } 
+      TV_92_M_b$Lx <- NA # Armemos Lx
+      for (i in 1:(nrow(TV_92_M_b) - 1)) {
+        TV_92_M_b$Lx[i] <- (TV_92_M_b$lx[i] + TV_92_M_b$lx[i + 1]) / 2
+      }
+      last_row <- nrow(TV_92_M_b) # Truncar los valores w-esimos segun Chiang (1972)
+      TV_92_M_b$Lx[last_row] <- TV_92_M_b$lx[last_row] / TV_92_M_b$Mx[last_row]
+      TV_92_M_b$Tx <- NA # Armemos Tx
+      TV_92_M_b$Tx[last_row] <- TV_92_M_b$Lx[last_row] #se parte del final con el valor terminal de Lx = lx/mx
+      for (i in (last_row - 1):1) { #se itera con lx + Tx+1(edad siguiente)
+        TV_92_M_b$Tx[i] <- TV_92_M_b$Lx[i] + TV_92_M_b$Tx[i + 1]
+      }
+      TV_92_M_b$P_x1 <- NA #Armemos P(x,1)
+      TV_92_M_b$P_x1[1] <- TV_92_M_b$Lx[1] / TV_92_M_b$lx[1] #Primer valor como Lx/lx
+      for (i in 2:nrow(TV_92_M_b)) { # Valores consecutivos como Tx/T(x-1)
+        TV_92_M_b$P_x1[i] <- TV_92_M_b$Tx[i] / TV_92_M_b$Tx[i - 1]
+      }
+      TV_92_M_b <- TV_92_M_b %>%
+        mutate(e_0 = ifelse(Tx != 0, Tx / lx )) #se logro armar la tabla, ahora hay que transformarla en funcion.
+    }
+    # Media
+    {
+      TV_92_M_m <- data.frame(matrix(nrow = nrow(tabla_92_hombre), ncol = 0))
+      TV_92_M_m$Edad <- tabla_92_hombre$Edad
+      TV_92_M_m$Mx <- tabla_92_hombre$mx_medio
+      TV_92_M_m <- TV_92_M_m %>% filter(Edad >= 25 & Edad <= 99)
+      fn <- 0.5 #Distribucion normal de muertes en el año, simplifica la vida y calculos
+      TV_92_M_m <- TV_92_M_m %>%
+        mutate(qx = ifelse(Mx != 0, Mx / (1 + fn * Mx), 0)) # Setup probabilidad de muerte en un año
+      TV_92_M_m$qx[nrow(TV_92_M_m)] <- 1
+      TV_92_M_m$lx[1] <- 100000
+      TV_92_M_m$dx[1] <- TV_92_M_m$lx[1] * TV_92_M_m$qx[1]
+      for (i in 2:nrow(TV_92_M_m)) { #Armar las columnas de lx  y dx
+        TV_92_M_m$lx[i] <- TV_92_M_m$lx[i-1] - TV_92_M_m$dx[i-1]
+        TV_92_M_m$dx[i] <- TV_92_M_m$lx[i] * TV_92_M_m$qx[i]
+      } 
+      TV_92_M_m$Lx <- NA # Armemos Lx
+      for (i in 1:(nrow(TV_92_M_m) - 1)) {
+        TV_92_M_m$Lx[i] <- (TV_92_M_m$lx[i] + TV_92_M_m$lx[i + 1]) / 2
+      }
+      last_row <- nrow(TV_92_M_m) # Truncar los valores w-esimos segun Chiang (1972)
+      TV_92_M_m$Lx[last_row] <- TV_92_M_m$lx[last_row] / TV_92_M_m$Mx[last_row]
+      TV_92_M_m$Tx <- NA # Armemos Tx
+      TV_92_M_m$Tx[last_row] <- TV_92_M_m$Lx[last_row] #se parte del final con el valor terminal de Lx = lx/mx
+      for (i in (last_row - 1):1) { #se itera con lx + Tx+1(edad siguiente)
+        TV_92_M_m$Tx[i] <- TV_92_M_m$Lx[i] + TV_92_M_m$Tx[i + 1]
+      }
+      TV_92_M_m$P_x1 <- NA #Armemos P(x,1)
+      TV_92_M_m$P_x1[1] <- TV_92_M_m$Lx[1] / TV_92_M_m$lx[1] #Primer valor como Lx/lx
+      for (i in 2:nrow(TV_92_M_m)) { # Valores consecutivos como Tx/T(x-1)
+        TV_92_M_m$P_x1[i] <- TV_92_M_m$Tx[i] / TV_92_M_m$Tx[i - 1]
+      }
+      TV_92_M_m <- TV_92_M_m %>%
+        mutate(e_0 = ifelse(Tx != 0, Tx / lx )) #se logro armar la tabla, ahora hay que transformarla en funcion.
+    }
+    # Alta
+    {
+      TV_92_M_a <- data.frame(matrix(nrow = nrow(tabla_92_hombre), ncol = 0))
+      TV_92_M_a$Edad <- tabla_92_hombre$Edad
+      TV_92_M_a$Mx <- tabla_92_hombre$mx_alto
+      TV_92_M_a <- TV_92_M_a %>% filter(Edad >= 25 & Edad <= 99)
+      fn <- 0.5 #Distribucion normal de muertes en el año, simplifica la vida y calculos
+      TV_92_M_a <- TV_92_M_a %>%
+        mutate(qx = ifelse(Mx != 0, Mx / (1 + fn * Mx), 0)) # Setup probabilidad de muerte en un año
+      TV_92_M_a$qx[nrow(TV_92_M_a)] <- 1
+      TV_92_M_a$lx[1] <- 100000
+      TV_92_M_a$dx[1] <- TV_92_M_a$lx[1] * TV_92_M_a$qx[1]
+      for (i in 2:nrow(TV_92_M_a)) { #Armar las columnas de lx  y dx
+        TV_92_M_a$lx[i] <- TV_92_M_a$lx[i-1] - TV_92_M_a$dx[i-1]
+        TV_92_M_a$dx[i] <- TV_92_M_a$lx[i] * TV_92_M_a$qx[i]
+      } 
+      TV_92_M_a$Lx <- NA # Armemos Lx
+      for (i in 1:(nrow(TV_92_M_a) - 1)) {
+        TV_92_M_a$Lx[i] <- (TV_92_M_a$lx[i] + TV_92_M_a$lx[i + 1]) / 2
+      }
+      last_row <- nrow(TV_92_M_a) # Truncar los valores w-esimos segun Chiang (1972)
+      TV_92_M_a$Lx[last_row] <- TV_92_M_a$lx[last_row] / TV_92_M_a$Mx[last_row]
+      TV_92_M_a$Tx <- NA # Armemos Tx
+      TV_92_M_a$Tx[last_row] <- TV_92_M_a$Lx[last_row] #se parte del final con el valor terminal de Lx = lx/mx
+      for (i in (last_row - 1):1) { #se itera con lx + Tx+1(edad siguiente)
+        TV_92_M_a$Tx[i] <- TV_92_M_a$Lx[i] + TV_92_M_a$Tx[i + 1]
+      }
+      TV_92_M_a$P_x1 <- NA #Armemos P(x,1)
+      TV_92_M_a$P_x1[1] <- TV_92_M_a$Lx[1] / TV_92_M_a$lx[1] #Primer valor como Lx/lx
+      for (i in 2:nrow(TV_92_M_a)) { # Valores consecutivos como Tx/T(x-1)
+        TV_92_M_a$P_x1[i] <- TV_92_M_a$Tx[i] / TV_92_M_a$Tx[i - 1]
+      }
+      TV_92_M_a <- TV_92_M_a %>%
+        mutate(e_0 = ifelse(Tx != 0, Tx / lx )) #se logro armar la tabla, ahora hay que transformarla en funcion.
+    } 
+    }
+  # Guardemos las tablas 
+  setwd("C:/Users/Alfonso Orrego/Documents/GitHub/Mortality/Results")
+  write.csv(TV_92_M_b, "TV_92_M_b.csv", row.names = FALSE)
+  write.csv(TV_92_M_m, "TV_92_M_m.csv", row.names = FALSE)
+  write.csv(TV_92_M_a, "TV_92_M_a.csv", row.names = FALSE)
+  write.csv(TV_92_M_t, "TV_92_M_t.csv", row.names = FALSE)
+    
+    
+  }
+  
