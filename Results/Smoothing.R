@@ -2,19 +2,6 @@
 {
   
   #Librerias
-  install.packages("readxl")
-  install.packages("tidyverse")
-  {
-    library(haven)
-    library(readr)
-    library(lubridate)
-    library(dplyr)
-    library(tidyr)  
-    library(ggplot2)   
-    library(stringr)
-    library(readxl)
-    library(tidyverse)
-  }
   # Setiar directorio de trabajo donde estaremos trabajando y estan los datos
   setwd("C:/Users/Alfonso Orrego/OneDrive - Universidad Adolfo Ibanez/Simplex/UAI/Tesis/Tablas de vida/Longevidad y educacion/DATOS_INE_ADM/RAW/AH007T0012008/SAIP AH007T0012008")
   file_list <- list.files(path = getwd(), pattern = "\\.xlsx$", full.names = TRUE)
@@ -84,9 +71,9 @@
   defs <- defs %>%
     mutate(
       tramo_esc = case_when(
-        (Nivel == 2 & Curso %in% c(5)) | (Nivel == 1 & Curso %in% 1:9) ~ "alta",
-        (Nivel == 3 & Curso %in% 1:6) | (Nivel == 4 & Curso %in% 7:8) | (Nivel == 2 & Curso %in% 1:4) ~ "media",
-        (Nivel == 4 & Curso %in% 1:6) | (Nivel == 5 & Curso %in% 0) ~ "baja",
+        (Nivel == 1 & Curso %in% 1:9) ~ "alta",
+        (Nivel == 2 & Curso %in% c(5)) | (Nivel == 3 & Curso %in% 3:6) | (Nivel == 2 & Curso %in% 1:4) ~ "media",
+        (Nivel == 3 & Curso %in% 1:2) | (Nivel == 4 & Curso %in% 1:6) | (Nivel == 5 & Curso %in% 0) | (Nivel == 4 & Curso %in% 7:8) ~ "baja",
         TRUE ~ NA_character_  # Resto seran NAs
       )
     )
@@ -182,12 +169,7 @@
   
   #Instalar/usar paquetes necesarios:
   {
-    library(haven)
-    library(readr)
-    library(lubridate)
-    library(dplyr)
-    library(tidyr)  
-    library(ggplot2) 
+     
   }
   # Leer los csv de las tablas del censo por genero
   {
@@ -211,20 +193,24 @@
   {
     df_mujer_92 <- df_mujer_92 %>% select(-esc_bajo)
     df_mujer_92 <- df_mujer_92 %>% select(-esc_alto)
-    df_hombre_92 <- df_hombre_92 %>% select(-esc_bajo)
-    df_hombre_92 <- df_hombre_92 %>% select(-esc_alto)
+    df_mujer_92 <- df_mujer_92 %>% select(-Total)
+    
+    #df_hombre_92 <- df_hombre_92 %>% select(-esc_bajo)
+    #df_hombre_92 <- df_hombre_92 %>% select(-esc_alto)
   }
   # La categoria de años de estudio es de 0 a 20 , 0 es nunca asistio y 20 es el maximo valor posible.
   # X0 a X6(2:8); sin instruccion a 6to, X7 a X11(9:14) (hasta 4to medio), X12 a X20(15:22) escolaridad alta.
   {
     set.seed(123)
-    df_mujer_92$esc_bajo <- rowSums(df_mujer_92[,2:8])
-    df_mujer_92$esc_medio <- rowSums(df_mujer_92[,9:14])
+    df_mujer_92$esc_bajo <- rowSums(df_mujer_92[,2:10])
+    df_mujer_92$esc_medio <- rowSums(df_mujer_92[,11:14])
     df_mujer_92$esc_alto <- rowSums(df_mujer_92[,15:22])
+    df_mujer_92$total <- rowSums(df_mujer_92[,2:22])
     
-    df_hombre_92$esc_bajo <- rowSums(df_hombre_92[,2:8])
-    df_hombre_92$esc_medio <- rowSums(df_hombre_92[,9:14])
+    df_hombre_92$esc_bajo <- rowSums(df_hombre_92[,2:10])
+    df_hombre_92$esc_medio <- rowSums(df_hombre_92[,11:14])
     df_hombre_92$esc_alto <- rowSums(df_hombre_92[,15:22])
+    df_hombre_92$total <- rowSums(df_mujer_92[,2:22])
   }
   #Trasvasijemos a totales
   {
@@ -238,9 +224,9 @@
   # Limpiemos las columnas con las que construimos los escalones de escolaridad:
   {
     df_hombre_92 <- df_hombre_92 %>%
-      select(-c(2:23))
+      select(-c(2:22))
     df_mujer_92 <- df_mujer_92 %>%
-      select(-c(2:23))
+      select(-c(2:22))
   }
   # Agreguemos una columna de año para dejar ID para los modelos
   {
@@ -260,130 +246,225 @@
     
   }
 }
-
-
-defs_h_baja <- defs %>%
-  filter(Sexo == 1, Ano_fa %in% c(1991, 1992,1993),tramo_esc == "baja") %>%
-  group_by(Edad, tramo_esc) %>%
-  summarise(Count = round(n() / 3), .groups = 'drop') %>%
-  pivot_wider(names_from = tramo_esc, values_from = Count, values_fill = list(Count = 0))
-defs_h_media <- defs %>%
-  filter(Sexo == 1, Ano_fa %in% c(1991, 1992,1993),tramo_esc == "media") %>%
-  group_by(Edad, tramo_esc) %>%
-  summarise(Count = round(n() / 3), .groups = 'drop') %>%
-  pivot_wider(names_from = tramo_esc, values_from = Count, values_fill = list(Count = 0))
-defs_h_alta <- defs %>%
-  filter(Sexo == 1, Ano_fa %in% c(1991, 1992,1993),tramo_esc == "alta") %>%
-  group_by(Edad, tramo_esc) %>%
-  summarise(Count = round(n() / 3), .groups = 'drop') %>%
-  pivot_wider(names_from = tramo_esc, values_from = Count, values_fill = list(Count = 0))
+# Ahora al Censo 2002:
+{
+  #Fijemos directorio donde esten los archivos del censo 2002
+  {
+    setwd("C:/Users/Alfonso Orrego/OneDrive - Universidad Adolfo Ibanez/Simplex/UAI/Tesis/Tablas de vida/Longevidad y educacion/Datos/Censo/Censo 2002")
+    getwd()
+  }
+  #Instalar/usar paquetes necesarios:
+  {
+    
+  }
+  # Leer los csv de las tablas del censo por genero: reciclemos codigo del 92
+  {
+    df_hombre_02 <- read.csv("Hombres_2002.csv", sep = ";")
+    df_mujer_02 <- read.csv("Mujeres_2002.csv", sep = ";")
+  }
+  # Trunquemos los df para que tengan rango de edad de 25:110 y los que no tengan sean 0s
+  {
+    rango_edad_min_max <- 25:110
+    df_rango_edades <- data.frame(Edad = rango_edad_min_max)
+    df_mujer_02 <- df_rango_edades %>%
+      left_join(df_mujer_02, by = "Edad") %>%
+      replace_na(list(Cantidad = 0)) %>%
+      arrange(Edad)
+    df_hombre_02 <- df_rango_edades %>%
+      left_join(df_hombre_02, by = "Edad") %>%
+      replace_na(list(Cantidad = 0)) %>%
+      arrange(Edad)
+  }
+  #Definir categorias para el censo 2002 igual que el censo 92 y 17, 2:6 basica, 7:12 media, 13:16 alta, educacion tecnica femenina nunca ha sido tomado
+  {
+    df_mujer_02$esc_bajo <- rowSums(df_mujer_02[,2:5])
+    df_mujer_02$esc_medio <- rowSums(df_mujer_02[,6:12])
+    df_mujer_02$esc_alto <- rowSums(df_mujer_02[,13:16])
+    
+    df_hombre_02$esc_bajo <- rowSums(df_hombre_02[,2:5])
+    df_hombre_02$esc_medio <- rowSums(df_hombre_02[,6:12])
+    df_hombre_02$esc_alto <- rowSums(df_hombre_02[,13:16])
+  }
+  #Trasvasijemos a totales
+  {
+    df_totales_02 <- df_hombre_02 %>%
+      inner_join(df_mujer_02, by = "Edad", suffix = c("_hombre","_mujer")) %>%
+      mutate(esc_bajo = esc_bajo_hombre + esc_bajo_mujer, esc_medio = esc_medio_hombre + esc_medio_mujer, esc_alto = esc_alto_hombre + esc_alto_mujer) %>%
+      select(Edad, esc_bajo,esc_medio, esc_alto) %>%
+      arrange(Edad)
+  }
+  # Limpiemos las columnas con las que construimos los escalones de escolaridad:
+  {
+    df_hombre_02 <- df_hombre_02 %>%
+      select(-c(2:17))
+    df_mujer_02 <- df_mujer_02 %>%
+      select(-c(2:17))
+  }
+  # Agreguemos una columna de año para dejar ID para los modelos
+  {
+    df_hombre_02$year <- 2002
+    df_mujer_02$year <- 2002
+    df_totales_02$year <- 2002
+  }
   
-smooths_hombre_92 <- df_hombre_92 %>%
-  left_join(defs_h_baja, by = "Edad") %>%
-  left_join(defs_h_media, by = "Edad") %>%
-  left_join(defs_h_alta, by ="Edad")
-#smooths_hombre_92 <- smooths_hombre_92 %>%
- # select(-year.x,-c(6:9))
-
-tabla_sub_99 <- smooths_hombre_92 %>%
-  filter(Edad < 99)
-
-tabla_99_y_mas <- smooths_hombre_92 %>%
-  filter(Edad >= 99) %>%
-  summarise(
-    Edad = 99,
-    alta = sum(alta, na.rm = TRUE),
-    media = sum(media, na.rm = TRUE),
-    baja = sum(baja, na.rm = TRUE),
-    esc_bajo.x = sum(esc_bajo.x, na.rm = TRUE),
-    esc_medio.x = sum(esc_medio.x, na.rm = TRUE),
-    esc_alto.x = sum(esc_alto.x, na.rm = TRUE)
-  )
-tabla_sub_99_agg <- tabla_sub_99 %>%
-  group_by(Edad) %>%
-  summarise(
-    alta = sum(alta, na.rm = TRUE),
-    media = sum(media, na.rm = TRUE),
-    baja = sum(baja, na.rm = TRUE),
-    esc_bajo.x = sum(esc_bajo.x, na.rm = TRUE),
-    esc_medio.x = sum(esc_medio.x, na.rm = TRUE),
-    esc_alto.x = sum(esc_alto.x, na.rm = TRUE)
-  )
-tabla_final <- tabla_sub_99_agg %>%
-  bind_rows(tabla_99_y_mas) %>%
-  arrange(Edad)
+  # Saquemos los resultados a tablas para revision:
+  # Pasemos los datos de proporciones y counts a tablas de datos para guardar:
+  #setwd("C:/Users/Alfonso Orrego/Documents/GitHub/Mortality/Results")
+  #write.csv(df_hombre_02, "df_hombre_02_table.csv", row.names = FALSE)
+  #write.csv(df_mujer_02, "df_mujer_02_table.csv", row.names = FALSE)
+  #write.csv(df_totales_02, "df_totales_02_table.csv", row.names = FALSE)
+  
+}
+# Limpieza informacion innecesaria:
+rm(df_rango_edades)
+# Ahora el Censo 2017:
+{
+  
+  #Manipulemos datos
+  setwd("C:/Users/Alfonso Orrego/OneDrive - Universidad Adolfo Ibanez/Simplex/UAI/Tesis/Tablas de vida/Longevidad y educacion/Datos/Censo/Censo 2017")
+  getwd() #chequear que este bien el directorio para guardar el trabajo
+  data <- read_delim("C:/Users/Alfonso Orrego/OneDrive - Universidad Adolfo Ibanez/Simplex/UAI/Tesis/Tablas de vida/Longevidad y educacion/Datos/Censo/Censo 2017/Microdato_Censo2017-Personas.csv", delim = ";")
+  
+  #Quedemosnos con las columnas que necesitamos:
+  data <- data %>%
+    select(12, 13, 27, 26)
+  
+  data <- data %>%
+    rename(
+      sexo = P08,
+      edad = P09,
+      nivel = P15,
+      curso = P14
+    )
+  niveles <- unique(data$nivel)
+  print(niveles)
+  curso <- unique(data$curso)
+  print(curso)
+  data <- data %>% # tramos escolaridad INE
+    mutate(
+      tramo_esc_INE = case_when(
+        (nivel >= 11 & nivel < 15)  ~ "alta",
+        (nivel > 6 & nivel < 11) ~ "media",
+        (nivel <= 6) ~ "baja", # se agrega 7mo y 8vo a esta categoria
+        TRUE ~ NA_character_  # Resto seran NAs
+      )
+    )
+  data <- data %>% # tramos escolaridad INE
+    mutate(
+      tramo_esc = case_when(
+        (nivel >= 11 & nivel < 15)  ~ "alta",
+        (nivel > 6 & nivel < 11) ~ "media",
+        (nivel <= 6) ~ "baja", # se agrega 7mo y 8vo a esta categoria
+        TRUE ~ NA_character_  # Resto seran NAs
+      )
+    )
+  
+  #Proporciones escolaridad censo 2017:
+  proporciones_propio <- data %>% #proporciones de los tramos segun nuestros parametros
+    count(tramo_esc) %>%
+    mutate(proportion = n / sum(n)) 
+  setwd("C:/Users/Alfonso Orrego/Documents/GitHub/Mortality/Results")
+  write.csv(proporciones_propio, "proporciones_propio_censo2017_table.csv", row.names = FALSE)
+  
+  setwd("C:/Users/Alfonso Orrego/OneDrive - Universidad Adolfo Ibanez/Simplex/UAI/Tesis/Tablas de vida/Longevidad y educacion/Datos/Censo/Censo 2017")
+  getwd() #chequear que este bien el directorio para guardar el trabajo
+  
+  #creemos las tablas de Q por sexo:
+  df_total_17_sexos <- data %>%
+    group_by(edad, sexo) %>%
+    summarise(Count = n()) %>%
+    pivot_wider(names_from = sexo, values_from = Count, values_fill = 0)
+  
+  df_total_17 <- data %>%
+    group_by(edad, tramo_esc) %>%
+    summarise(Count = n()) %>%
+    pivot_wider(names_from = tramo_esc, values_from = Count, values_fill = 0)
+  
+  df_hombre_17 <- data %>%
+    filter(sexo == 1) %>%
+    group_by(edad, tramo_esc) %>%
+    summarise(Count = n()) %>%
+    pivot_wider(names_from = tramo_esc, values_from = Count, values_fill = 0)
+  
+  df_mujer_17 <- data %>%
+    filter(sexo == 2) %>%
+    group_by(edad, tramo_esc) %>%
+    summarise(Count = n()) %>%
+    pivot_wider(names_from = tramo_esc, values_from = Count, values_fill = 0)
+  
+  
+  df_proportions <- data %>%
+    filter(sexo == 1) %>%
+    group_by(edad, tramo_esc) %>%
+    summarise(Count = n()) %>%
+    mutate(Proportion = Count / sum(Count))
+  
+  
+  ggplot(df_proportions, aes(x = as.factor(edad), y = Proportion, fill = tramo_esc)) +
+    geom_bar(stat = "identity", position = "stack") +
+    labs(x = "Edad", y = "Proportion", fill = "Tramo Esc") +
+    scale_fill_manual(values = c("alta" = "blue", "media" = "orange", "baja" = "green")) +  # colores
+    theme_minimal() +
+    ggtitle("Proporciones de tramo de escolaridad por edad: Hombres")
+  
+  df_proportions <- data %>%
+    filter(sexo == 2) %>%
+    group_by(edad, tramo_esc) %>%
+    summarise(Count = n()) %>%
+    mutate(Proportion = Count / sum(Count))
+  
+  
+  ggplot(df_proportions, aes(x = as.factor(edad), y = Proportion, fill = tramo_esc)) +
+    geom_bar(stat = "identity", position = "stack") +
+    labs(x = "Edad", y = "Proportion", fill = "Tramo Esc") +
+    scale_fill_manual(values = c("alta" = "blue", "media" = "orange", "baja" = "green")) +  # colores
+    theme_minimal() +
+    ggtitle("Proporciones de tramo de escolaridad por edad: Mujeres")
+  
+  
+  # Guardemos las tablas de cantidad de personas por genero por edad por tramo:
+  setwd("C:/Users/Alfonso Orrego/Documents/GitHub/Mortality/Results")
+  #write.csv(df_hombre_17, "df_hombre_17_table.csv", row.names = FALSE)
+  #write.csv(df_mujer_17, "df_mujer_17_table.csv", row.names = FALSE)
+  #write.csv(df_total_17, "df_total_17_table.csv", row.names = FALSE)
+  #write.csv(df_proportions, "proporciones_edad_2017.csv", row.names = FALSE)
+  
+  rm(data, df_proportions, df_total_17_sexos)
+}  
+# Limpieza informacion innecesaria:
+rm(anos_f_unique,curso,curso_f_unique,niveles,nivel_f_unique,sexo_f_unique)
+# Truncar los df del censo 2017:
+{
+  df_rango_edades <- data.frame(edad = rango_edad_min_max)
+  nombres_columnas <- c("Edad", "esc_bajo","NA", "esc_medio","esc_alto")
+  df_mujer_17 <- df_rango_edades %>%
+    left_join(df_mujer_17, by = "edad") %>%
+    replace_na(list(Cantidad = 0)) %>%
+    arrange(edad)
+  df_hombre_17 <- df_rango_edades %>%
+    left_join(df_hombre_17, by = "edad") %>%
+    replace_na(list(Cantidad = 0)) %>%
+    arrange(edad)
+  df_total_17 <- df_rango_edades %>%
+    left_join(df_total_17, by = "edad") %>%
+    replace_na(list(Cantidad = 0)) %>%
+    arrange(edad)
+  colnames(df_mujer_17) <- nombres_columnas
+  colnames(df_hombre_17) <- nombres_columnas
+  colnames(df_total_17) <- nombres_columnas
+  df_mujer_17$year <- 2017
+  df_hombre_17$year <- 2017
+  df_total_17$year <- 2017
+  df_mujer_17 <- df_mujer_17 %>%
+    select(Edad, esc_bajo,esc_medio,esc_alto,year,"NA")
+  df_hombre_17 <- df_hombre_17 %>%
+    select(Edad, esc_bajo,esc_medio,esc_alto,year,"NA")
+  df_total_17 <- df_total_17 %>%
+    select(Edad, esc_bajo,esc_medio,esc_alto,year,"NA")
+  rm(nombres_columnas)
+}
 #########################################################
 
 
 
-
-
-
-# Whittaker-Henderson Smoothing: hay que robarlo de diferentes bibliotecas.
-{
-  {
-    library(devtools)
-    install.packages("mgcv")
-    library(mgcv)
-    install.packages("svcm")
-    library(svcm)
-  }
-  # WH Smooth:
-  fit_wh <- Mort1Dsmooth(x = tabla_final$Edad, y = tabla_final$baja, offset = log(tabla_final$esc_bajo.x))
-  smoothed_h_b <- fitted(fit_wh)
   
-  # Splines:
-  data <- data.frame(age = tabla_final$Edad, deaths = tabla_final$baja, exposures = tabla_final$esc_bajo.x)
-  fit_ps <- gam(deaths ~ s(age, bs = "ps") + offset(log(exposures)), family = poisson, data = data)
-  smoothed_deaths_ps <- fitted(fit_ps)
-  
-  plot(data$age, data$deaths, type = "p", main = "Smoothed Mortality Rates")
-  lines(data$age, smoothed_h_b, col = "blue", lwd = 2, lty = 2)
-  lines(data$age, smoothed_deaths_ps, col = "red", lwd = 2, lty = 1)
-  legend("topleft", legend = c("Whittaker-Henderson", "Penalized B-Splines"), col = c("blue", "red"), lty = c(2, 1), lwd = 2)
-  
-  revision <- data.frame(age = tabla_final$Edad, splines = smoothed_deaths_ps, WH = smoothed_h_b, observado = data$deaths, exposure = data$exposures)
-  revision <- revision %>%
-    mutate(mx_o = observado/exposure,
-           mx_s = splines/exposure,
-           mx_WH = WH/exposure)
-  ggplot()+
-    geom_line(revision, mapping = aes(x=age, y= splines), color ="blue")+
-    geom_point(revision, mapping = aes(x=age, y= splines), color ="blue")+
-    geom_line(revision, mapping = aes(x=age, y= WH), color ="red")+
-    geom_point(revision, mapping = aes(x=age, y= WH), color ="red")+
-    geom_line(data, mapping = aes(x=age, y= deaths), color ="black")+
-    labs(x="Edad",y="Mortalidad", title = "Mortalidad suavizada (H/B/92)")+
-    theme_minimal()
-  
-  ggplot() + #Muertes
-    geom_line(data = revision, aes(x = age, y = splines, color = "Splines")) +
-    geom_point(data = revision, aes(x = age, y = splines, color = "Splines")) +
-    geom_line(data = revision, aes(x = age, y = WH, color = "WH")) +
-    geom_point(data = revision, aes(x = age, y = WH, color = "WH")) +
-    geom_line(data = data, aes(x = age, y = deaths, color = "Deaths")) +
-    scale_color_manual(values = c("Splines" = "blue", "WH" = "red", "Deaths" = "black"),
-                       labels = c("Deaths", "Splines", "WH"),
-                       name = "Legend") +
-    labs(x = "Edad", y = "Mortalidad", title = "Mortalidad suavizada (H/B/92)") +
-    theme_minimal()
-  ggplot() + #Mortalidad
-    geom_line(data = revision, aes(x = age, y = mx_s, color = "Splines")) +
-    geom_point(data = revision, aes(x = age, y = mx_s, color = "Splines")) +
-    geom_line(data = revision, aes(x = age, y = mx_WH, color = "WH")) +
-    geom_point(data = revision, aes(x = age, y = mx_WH, color = "WH")) +
-    geom_line(data = revision, aes(x = age, y = mx_o, color = "Deaths")) +
-    scale_color_manual(values = c("Splines" = "blue", "WH" = "red", "Deaths" = "black"),
-                       labels = c("Deaths", "Splines", "WH"),
-                       name = "Legend") +
-    labs(x = "Edad", y = "Mortalidad", title = "Mortalidad suavizada (H/B/92)") +
-    theme_minimal()
-  
-  
-  
-  }
-
-  
-
-
-?inrange
