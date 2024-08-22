@@ -189,7 +189,7 @@
   
 }
 
-# Tablas de e_25 y e_65 para WH
+# Tablas de e_25 y e_65 para WH (logs)
 {
   # Mujeres
   {
@@ -241,13 +241,36 @@
     
   }
   
+}
+# Tablas de ratios de categorias por sexo:
+{
+  # Create a new dataframe to store the ratios
+  life_expectancy_ratios_df <- data.frame(
+    year = c("1992", "2002", "2017"),
+    baja_totales = numeric(3),
+    media_totales = numeric(3),
+    alta_totales = numeric(3)
+  )
   
+  # List of years to iterate over
+  years <- c("92", "02", "17")
   
-  
-  
+  # Calculate the ratios and populate the dataframe
+  for (i in seq_along(years)) {
+    year <- years[i]
+    
+    # Calculate ratios for each category compared to totals
+    life_expectancy_ratios_df$baja_totales[i] <- life_table_data[[paste0("lfm_baja_", year, "_WH")]]$e_0[life_table_data[[paste0("lfm_baja_", year, "_WH")]]$Edad == 25] /
+      life_table_data[[paste0("lfm_totales_", year, "_WH")]]$e_0[life_table_data[[paste0("lfm_totales_", year, "_WH")]]$Edad == 25]
+    
+    life_expectancy_ratios_df$media_totales[i] <- life_table_data[[paste0("lfm_media_", year, "_WH")]]$e_0[life_table_data[[paste0("lfm_media_", year, "_WH")]]$Edad == 25] /
+      life_table_data[[paste0("lfm_totales_", year, "_WH")]]$e_0[life_table_data[[paste0("lfm_totales_", year, "_WH")]]$Edad == 25]
+    
+    life_expectancy_ratios_df$alta_totales[i] <- life_table_data[[paste0("lfm_alta_", year, "_WH")]]$e_0[life_table_data[[paste0("lfm_alta_", year, "_WH")]]$Edad == 25] /
+      life_table_data[[paste0("lfm_totales_", year, "_WH")]]$e_0[life_table_data[[paste0("lfm_totales_", year, "_WH")]]$Edad == 25]
+  }
   
 }
-
 
 # Ahora plotiemos:
 {
@@ -493,6 +516,86 @@
     
   }
   
+  # Plots de ratios de expectativas de vida:
+  {
+    life_expectancy_ratios_long <- life_expectancy_ratios_df %>%
+      pivot_longer(cols = -year, names_to = "category_ratio", values_to = "ratio")
+    
+    # Create the plot
+    ggplot(life_expectancy_ratios_long, aes(x = year, y = ratio, color = category_ratio, group = category_ratio)) +
+      geom_line(size = 1) +
+      geom_point(size = 2) +
+      scale_color_manual(values = c("baja_totales" = "blue", "media_totales" = "red", "alta_totales" = "green")) +
+      labs(
+        title = "Life Expectancy Ratios by Category Over the Years",
+        x = "Year",
+        y = "Ratio (Category / Totales)",
+        color = "Category Ratios"
+      ) +
+      theme_minimal() +
+      theme(
+        plot.title = element_text(hjust = 0.5),
+        legend.position = "top"
+      )
+  }
+  
+  
 }
 
-print(names(life_table_data))
+# Diferencias por edad por año:
+{
+  # Define the ages range
+  ages <- 25:110
+  
+  # Function to create the difference dataframe for a given year and method
+  create_diff_df <- function(year, method) {
+    # Extract life expectancy data for each category and gender
+    ex_f_alta <- get(paste0("lfh_alta_", year, "_", method))
+    ex_f_media <- get(paste0("lfh_media_", year, "_", method))
+    ex_f_baja <- get(paste0("lfh_baja_", year, "_", method))
+    
+    ex_m_alta <- get(paste0("lfm_alta_", year, "_", method))
+    ex_m_media <- get(paste0("lfm_media_", year, "_", method))
+    ex_m_baja <- get(paste0("lfm_baja_", year, "_", method))
+    
+    # Calculate differences for females
+    diff_f_alta_media <- ex_f_alta - ex_f_media
+    diff_f_alta_baja <- ex_f_alta - ex_f_baja
+    diff_f_media_baja <- ex_f_media - ex_f_baja
+    
+    # Calculate differences for males
+    diff_m_alta_media <- ex_m_alta - ex_m_media
+    diff_m_alta_baja <- ex_m_alta - ex_m_baja
+    diff_m_media_baja <- ex_m_media - ex_m_baja
+    
+    # Create the dataframe
+    diff_df <- data.frame(
+      Age = ages,
+      Diff_F_Alta_Media = diff_f_alta_media,
+      Diff_F_Alta_Baja = diff_f_alta_baja,
+      Diff_F_Media_Baja = diff_f_media_baja,
+      Diff_M_Alta_Media = diff_m_alta_media,
+      Diff_M_Alta_Baja = diff_m_alta_baja,
+      Diff_M_Media_Baja = diff_m_media_baja
+    )
+    
+    return(diff_df)
+  }
+  
+  # Loop through years and methods to create and store the data frames
+  for (year in c("92", "02", "17")) {
+    for (method in c("wh", "splines", "observed")) {
+      diff_df <- create_diff_df(year, method)
+      
+      # Assign the dataframe to a variable with a unique name
+      assign(paste0("diff_df_", method, "_", year), diff_df)
+    }
+  }
+  
+  
+  
+  
+}
+
+
+ls()
