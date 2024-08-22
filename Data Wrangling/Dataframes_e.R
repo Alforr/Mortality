@@ -189,6 +189,66 @@
   
 }
 
+# Tablas de e_25 y e_65 para WH
+{
+  # Mujeres
+  {
+    # Initialize the data frame
+    life_expectancy_df <- data.frame(
+      year = c("1992", "2002", "2017"),
+      alta = numeric(3),
+      media = numeric(3),
+      baja = numeric(3)
+    )
+    
+    # List of years to iterate over
+    years <- c("92", "02", "17")
+    
+    # Loop over each year and extract the natural logarithm of life expectancy at age 25 for the WH method
+    for (i in seq_along(years)) {
+      year <- years[i]
+      
+      # Extract and log-transform life expectancy at age 25 for each category
+      life_expectancy_df$alta[i] <- log(life_table_data[[paste0("lfm_alta_", year, "_WH")]]$e_0[life_table_data[[paste0("lfm_alta_", year, "_WH")]]$Edad == 25])
+      life_expectancy_df$media[i] <- log(life_table_data[[paste0("lfm_media_", year, "_WH")]]$e_0[life_table_data[[paste0("lfm_media_", year, "_WH")]]$Edad == 25])
+      life_expectancy_df$baja[i] <- log(life_table_data[[paste0("lfm_baja_", year, "_WH")]]$e_0[life_table_data[[paste0("lfm_baja_", year, "_WH")]]$Edad == 25])
+    }
+    
+    
+    # Print the resulting data frame
+    print(life_expectancy_df) 
+  }
+  
+  # Hombres
+  {
+    
+    life_expectancy_df_males <- data.frame(
+      year = c("1992", "2002", "2017"),
+      alta = log(c(life_table_data$lfh_alta_92_WH$e_0[life_table_data$lfh_alta_92_WH$Edad == 25],
+                   life_table_data$lfh_alta_02_WH$e_0[life_table_data$lfh_alta_02_WH$Edad == 25],
+                   life_table_data$lfh_alta_17_WH$e_0[life_table_data$lfh_alta_17_WH$Edad == 25])),
+      media = log(c(life_table_data$lfh_media_92_WH$e_0[life_table_data$lfh_media_92_WH$Edad == 25],
+                    life_table_data$lfh_media_02_WH$e_0[life_table_data$lfh_media_02_WH$Edad == 25],
+                    life_table_data$lfh_media_17_WH$e_0[life_table_data$lfh_media_17_WH$Edad == 25])),
+      baja = log(c(life_table_data$lfh_baja_92_WH$e_0[life_table_data$lfh_baja_92_WH$Edad == 25],
+                   life_table_data$lfh_baja_02_WH$e_0[life_table_data$lfh_baja_02_WH$Edad == 25],
+                   life_table_data$lfh_baja_17_WH$e_0[life_table_data$lfh_baja_17_WH$Edad == 25]))
+    )
+    
+    # Reshape data for plotting
+    life_expectancy_df_males_long <- life_expectancy_df_males %>%
+      pivot_longer(cols = c("alta", "media", "baja"), names_to = "category", values_to = "log_life_expectancy")
+    
+  }
+  
+  
+  
+  
+  
+  
+}
+
+
 # Ahora plotiemos:
 {
   # Donde guardamos las cosas:
@@ -384,6 +444,55 @@
     #save_life_tables_as_images(life_table_data, "m", "17")
   }
   
+  # Plots de niveles de expectativas de vida:
+  {
+    # Mujeres
+    {
+      # Convert the data frame to long format for easier plotting
+      life_expectancy_long <- reshape2::melt(life_expectancy_df, id.vars = "year", variable.name = "category", value.name = "log_life_expectancy")
+      
+      # Set the order of the categories
+      life_expectancy_long$category <- factor(life_expectancy_long$category, levels = c("baja", "media", "alta"))
+      
+      # Plotting
+      ggplot(life_expectancy_long, aes(x = category, y = log_life_expectancy, group = year, color = year)) +
+        geom_line(size = 1) +
+        geom_point(size = 2) +
+        labs(
+          title = "Comparison of Life Expectancy (log) across Categories for Females",
+          x = "Category",
+          y = "Log(Life Expectancy)",
+          color = "Year"
+        ) +
+        scale_x_discrete(labels = c("Low", "Mid", "High")) +
+        theme_minimal() +
+        theme(
+          plot.title = element_text(hjust = 0.5),
+          legend.position = "top"
+        )
+    }
+    
+    
+    # Hombres:
+    {
+      ggplot(life_expectancy_df_males_long, aes(x = category, y = log_life_expectancy, group = year, color = year)) +
+        geom_line(size = 1) +
+        geom_point(size = 2) +
+        scale_x_discrete(limits = c("baja", "media", "alta")) +
+        labs(
+          title = "Comparison of Life Expectancy (log) across Categories for Males",
+          x = "Category",
+          y = "Log Life Expectancy",
+          color = "Year"
+        ) +
+        theme_minimal()
+      }
+    
+    
+    
+    
+  }
+  
 }
 
-head(lfm_alta_02_observed)
+print(names(life_table_data))
